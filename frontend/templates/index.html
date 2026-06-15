@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Medical Entity Classifier - Home{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-house me-2"></i>Dashboard</h1>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- LLM Classification Card -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="bi bi-chat-text text-primary me-2"></i>LLM Classification
+            </div>
+            <div class="card-body">
+                <p class="card-text">Use LLMs to extract medical entities from clinical text. Supports batch processing and IOB export.</p>
+                <div class="d-grid gap-2">
+                    <a href="/app/llm/classify" class="btn btn-primary">
+                        <i class="bi bi-play-fill me-1"></i>Classify Text
+                    </a>
+                    <a href="/app/llm/batch" class="btn btn-outline-primary">
+                        <i class="bi bi-collection me-1"></i>Batch Processing
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BERT Classification Card -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="bi bi-cpu text-success me-2"></i>BERT Classification
+            </div>
+            <div class="card-body">
+                <p class="card-text">Fast local classification using fine-tuned BERT models. No external API calls required.</p>
+                <div class="d-grid gap-2">
+                    <a href="/app/bert/classify" class="btn btn-success">
+                        <i class="bi bi-play-fill me-1"></i>Classify Text
+                    </a>
+                    <a href="/app/bert/train" class="btn btn-outline-success">
+                        <i class="bi bi-mortarboard me-1"></i>Train Model
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Card -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="bi bi-gear text-secondary me-2"></i>Configuration
+            </div>
+            <div class="card-body">
+                <p class="card-text">Manage LLM servers, BERT models, and Knowledge Graph settings.</p>
+                <div class="d-grid gap-2">
+                    <a href="/app/config/llm" class="btn btn-secondary">
+                        <i class="bi bi-server me-1"></i>LLM Servers
+                    </a>
+                    <a href="/app/config/kg" class="btn btn-outline-secondary">
+                        <i class="bi bi-diagram-3 me-1"></i>Knowledge Graph
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Entity Types Reference -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-tags me-2"></i>Supported Entity Types
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-disease me-2">Disease</span>
+                <small class="text-muted">e.g., Pulmonary embolism</small>
+            </div>
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-symptom me-2">Symptom</span>
+                <small class="text-muted">e.g., Dyspnea</small>
+            </div>
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-finding me-2">Finding</span>
+                <small class="text-muted">e.g., Filling defect</small>
+            </div>
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-organ me-2">Organ</span>
+                <small class="text-muted">e.g., Pulmonary artery</small>
+            </div>
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-imaging_procedure me-2">Imaging Proc.</span>
+                <small class="text-muted">e.g., CT angiography</small>
+            </div>
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-examination_procedure me-2">Exam Proc.</span>
+                <small class="text-muted">e.g., Blood test</small>
+            </div>
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-therapeutic_procedure me-2">Therap. Proc.</span>
+                <small class="text-muted">e.g., Thrombectomy</small>
+            </div>
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-imaging_result me-2">Imaging Result</span>
+                <small class="text-muted">e.g., CT shows embolus</small>
+            </div>
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-parameter me-2">Parameter</span>
+                <small class="text-muted">e.g., D-dimer, Heart rate</small>
+            </div>
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-score me-2">Score</span>
+                <small class="text-muted">e.g., Wells score</small>
+            </div>
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-therapy me-2">Therapy</span>
+                <small class="text-muted">e.g., Anticoagulation</small>
+            </div>
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-substance me-2">Substance</span>
+                <small class="text-muted">e.g., Heparin, Contrast agent</small>
+            </div>
+            <div class="col-md-4 mb-2">
+                <span class="badge badge-entity entity-adverse_event me-2">Adverse Event</span>
+                <small class="text-muted">e.g., Bleeding</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Status -->
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-server me-2"></i>LLM Status
+            </div>
+            <div class="card-body" id="llmStatus">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    <span>Checking connection...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-cpu me-2"></i>BERT Status
+            </div>
+            <div class="card-body" id="bertStatus">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    <span>Checking status...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+    // Check LLM Status
+    try {
+        const llmConfigs = await apiCall('/llm-config/');
+        const activeConfig = llmConfigs.find(c => c.is_default);
+        if (activeConfig) {
+            document.getElementById('llmStatus').innerHTML = `
+                <div class="d-flex align-items-center text-success">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <span>Connected to <strong>${activeConfig.name}</strong> (${activeConfig.base_url})</span>
+                </div>
+            `;
+        } else {
+            document.getElementById('llmStatus').innerHTML = `
+                <div class="d-flex align-items-center text-warning">
+                    <i class="bi bi-exclamation-circle-fill me-2"></i>
+                    <span>No default LLM configured. <a href="/app/config/llm">Configure now</a></span>
+                </div>
+            `;
+        }
+    } catch (e) {
+        document.getElementById('llmStatus').innerHTML = `
+            <div class="d-flex align-items-center text-danger">
+                <i class="bi bi-x-circle-fill me-2"></i>
+                <span>Error checking LLM status</span>
+            </div>
+        `;
+    }
+
+    // Check BERT Status
+    try {
+        const bertStatus = await apiCall('/bert/status');
+        const statusHtml = bertStatus.transformers_available 
+            ? `<div class="d-flex align-items-center text-success">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <span>Ready (${bertStatus.device}) - ${bertStatus.available_models.length} models available</span>
+               </div>`
+            : `<div class="d-flex align-items-center text-warning">
+                <i class="bi bi-exclamation-circle-fill me-2"></i>
+                <span>Transformers not installed. Run: pip install transformers torch</span>
+               </div>`;
+        document.getElementById('bertStatus').innerHTML = statusHtml;
+    } catch (e) {
+        document.getElementById('bertStatus').innerHTML = `
+            <div class="d-flex align-items-center text-danger">
+                <i class="bi bi-x-circle-fill me-2"></i>
+                <span>Error checking BERT status</span>
+            </div>
+        `;
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,617 @@
+{% extends "base.html" %}
+{% block title %}SPARQL Query - Medical Entity Classifier{% endblock %}
+
+{% block extra_css %}
+<style>
+    .query-editor {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.9rem;
+        min-height: 380px !important;
+        max-width: 100%;
+        resize: vertical;
+        background: #1e1e2e;
+        color: #cdd6f4;
+        border: 1px solid #45475a;
+        padding: 12px;
+        border-radius: 8px;
+        tab-size: 2;
+    }
+    .query-editor:focus {
+        outline: none;
+        border-color: #89b4fa;
+        box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.15);
+    }
+
+    .results-table {
+        font-size: 0.85rem;
+    }
+    .results-table th {
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        color: #6c757d;
+        white-space: nowrap;
+    }
+    .results-table td {
+        word-break: break-all;
+        max-width: 400px;
+    }
+    .results-table td.uri-cell {
+        color: #0d6efd;
+        font-size: 0.8rem;
+    }
+
+    .example-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-left: 3px solid transparent;
+    }
+    .example-card:hover {
+        border-left-color: #0d6efd;
+        background: #f0f4ff;
+    }
+
+    .prefix-badge {
+        font-family: 'Consolas', monospace;
+        font-size: 0.75rem;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background: #e9ecef;
+        color: #495057;
+        cursor: pointer;
+    }
+    .prefix-badge:hover {
+        background: #dee2e6;
+    }
+
+    .stat-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+    }
+
+    .tab-content-sparql {
+        border: 1px solid #dee2e6;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding: 16px;
+        background: #fff;
+    }
+
+    pre.results-raw {
+        background: #1e1e2e;
+        color: #cdd6f4;
+        padding: 16px;
+        border-radius: 8px;
+        max-height: 500px;
+        overflow: auto;
+        font-size: 0.8rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">
+            <i class="bi bi-terminal text-primary me-2"></i>
+            SPARQL Query
+        </h1>
+        <p class="text-muted mb-0">Run SPARQL queries against the Knowledge Graph or external triple stores</p>
+    </div>
+    <div>
+        <a href="/app/kg/overview" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-diagram-3"></i> KG Overview
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Left: Query Editor -->
+    <div class="col-lg-8">
+        <!-- Query Card -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-code-slash me-2"></i>Query Editor</span>
+                <div class="d-flex gap-2 align-items-center">
+                    <label class="form-label mb-0 me-1 small text-muted">Target:</label>
+                    <select class="form-select form-select-sm" id="querySourceSelect" style="width: auto; min-width: 240px;">
+                        <option value="local">Local KG (all TTL files)</option>
+                    </select>
+                    <button class="btn btn-sm btn-outline-secondary" id="clearQueryBtn" title="Clear query">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body pb-2">
+                <textarea class="query-editor form-control" id="queryEditor" rows="15" placeholder="Enter your SPARQL query here...
+                    
+SELECT ?entity ?label
+WHERE {
+  ?entity rdfs:label ?label .
+}
+LIMIT 20" spellcheck="false"></textarea>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div id="prefixHints" class="d-flex gap-1 flex-wrap">
+                        <!-- Prefix badges will be injected here -->
+                    </div>
+                    <div>
+                        <button class="btn btn-primary" id="executeBtn">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" id="executeSpinner"></span>
+                            <i class="bi bi-play-fill me-1" id="executeIcon"></i>Execute
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Card -->
+        <div class="card" id="resultsCard" style="display:none;">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-table me-2"></i>Results</span>
+                <div class="d-flex gap-2 align-items-center">
+                    <span class="stat-pill" id="resultStats">
+                        <i class="bi bi-clock"></i>
+                        <span id="execTime">-</span>
+                    </span>
+                    <span class="stat-pill" id="resultCount">
+                        <i class="bi bi-hash"></i>
+                        <span id="rowCount">0</span> rows
+                    </span>
+                    <button class="btn btn-sm btn-outline-secondary" id="downloadCSVBtn" title="Download as CSV">
+                        <i class="bi bi-download me-1"></i>CSV
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <!-- Tabs for table vs raw -->
+                <ul class="nav nav-tabs px-3 pt-2" id="resultTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#tabTable">
+                            <i class="bi bi-table me-1"></i>Table
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#tabJSON">
+                            <i class="bi bi-braces me-1"></i>JSON
+                        </a>
+                    </li>
+                </ul>
+                <div class="tab-content tab-content-sparql">
+                    <div class="tab-pane fade show active" id="tabTable">
+                        <div class="table-responsive" style="max-height: 500px; overflow: auto;">
+                            <table class="table table-hover table-sm results-table mb-0" id="resultsTable">
+                                <thead class="table-light" id="resultsHead"></thead>
+                                <tbody id="resultsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tabJSON">
+                        <pre class="results-raw mb-0" id="resultsRaw"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Card -->
+        <div class="card border-danger" id="errorCard" style="display:none;">
+            <div class="card-header bg-danger text-white">
+                <i class="bi bi-exclamation-triangle me-2"></i>Query Error
+            </div>
+            <div class="card-body">
+                <pre class="mb-0 text-danger" id="errorMessage" style="white-space: pre-wrap;"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Examples & Help -->
+    <div class="col-lg-4">
+        <!-- Examples -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-lightbulb me-2"></i>Example Queries
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" id="examplesList">
+                    <div class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prefixes Reference -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-bookmark me-2"></i>Available Prefixes
+            </div>
+            <div class="card-body" id="prefixList">
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Help -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-question-circle me-2"></i>Quick Help
+            </div>
+            <div class="card-body small">
+                <p class="mb-2"><strong>Supported query types:</strong></p>
+                <ul class="mb-3">
+                    <li><code>SELECT</code> — Return variable bindings</li>
+                    <li><code>ASK</code> — Return true/false</li>
+                    <li><code>CONSTRUCT</code> — Return a new graph</li>
+                    <li><code>DESCRIBE</code> — Describe a resource</li>
+                </ul>
+                <p class="mb-2"><strong>Tips:</strong></p>
+                <ul class="mb-0">
+                    <li>Use <code>LIMIT</code> to avoid large result sets</li>
+                    <li>Click a prefix badge to insert it into the query</li>
+                    <li>Select a target: local TTL files, a specific file, or an external store</li>
+                    <li>Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to execute</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const queryEditor = document.getElementById('queryEditor');
+    const executeBtn = document.getElementById('executeBtn');
+    const executeSpinner = document.getElementById('executeSpinner');
+    const executeIcon = document.getElementById('executeIcon');
+    const clearQueryBtn = document.getElementById('clearQueryBtn');
+    const querySourceSelect = document.getElementById('querySourceSelect');
+    const resultsCard = document.getElementById('resultsCard');
+    const errorCard = document.getElementById('errorCard');
+    const downloadCSVBtn = document.getElementById('downloadCSVBtn');
+
+    let lastResults = null;
+
+    // Init
+    loadExamples();
+    loadPrefixes();
+    loadQuerySources();
+
+    // Keyboard shortcut: Ctrl+Enter to execute
+    queryEditor.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            executeQuery();
+        }
+        // Tab support in textarea
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+            this.selectionStart = this.selectionEnd = start + 2;
+        }
+    });
+
+    executeBtn.addEventListener('click', executeQuery);
+    
+    clearQueryBtn.addEventListener('click', () => {
+        queryEditor.value = '';
+        queryEditor.focus();
+    });
+
+    downloadCSVBtn.addEventListener('click', downloadCSV);
+
+    async function executeQuery() {
+        const query = queryEditor.value.trim();
+        if (!query) {
+            showToast('Please enter a SPARQL query', 'warning');
+            return;
+        }
+
+        // UI loading state
+        executeBtn.disabled = true;
+        executeSpinner.classList.remove('d-none');
+        executeIcon.classList.add('d-none');
+        resultsCard.style.display = 'none';
+        errorCard.style.display = 'none';
+
+        try {
+            const payload = { query: query };
+            const selectedSource = querySourceSelect.value;
+
+            // Parse the selected source: "all", "local", "ttl:filename.ttl", "store:123"
+            if (selectedSource === 'all') {
+                payload.query_all = true;
+            } else if (selectedSource.startsWith('ttl:')) {
+                payload.ttl_file = selectedSource.substring(4);
+            } else if (selectedSource.startsWith('store:')) {
+                payload.store_id = parseInt(selectedSource.substring(6));
+            }
+            // "local" = no extra params (queries full local graph)
+
+            const response = await apiCall('/sparql/query', 'POST', payload);
+
+            if (response.success) {
+                lastResults = response;
+                displayResults(response);
+            } else {
+                displayError(response.error || 'Unknown error');
+            }
+        } catch (error) {
+            displayError(error.message);
+        } finally {
+            executeBtn.disabled = false;
+            executeSpinner.classList.add('d-none');
+            executeIcon.classList.remove('d-none');
+        }
+    }
+
+    function displayResults(response) {
+        resultsCard.style.display = '';
+        errorCard.style.display = 'none';
+
+        // Stats
+        document.getElementById('execTime').textContent = response.execution_time_ms.toFixed(1) + ' ms';
+        document.getElementById('rowCount').textContent = response.total_results;
+
+        // Table
+        const thead = document.getElementById('resultsHead');
+        const tbody = document.getElementById('resultsBody');
+
+        if (response.result_type === 'boolean') {
+            thead.innerHTML = '<tr><th>Result</th></tr>';
+            const val = response.results[0]?.result;
+            const badge = val ? '<span class="badge bg-success">TRUE</span>' : '<span class="badge bg-danger">FALSE</span>';
+            tbody.innerHTML = `<tr><td>${badge}</td></tr>`;
+        } else {
+            // Columns
+            const cols = response.columns || [];
+            thead.innerHTML = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+
+            // Rows
+            if (response.results.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${cols.length}" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox me-2"></i>No results
+                </td></tr>`;
+            } else {
+                tbody.innerHTML = response.results.map(row => {
+                    return '<tr>' + cols.map(c => {
+                        const val = row[c];
+                        if (val === null || val === undefined) return '<td class="text-muted">null</td>';
+                        // Shorten URIs for display
+                        const isUri = val.startsWith('http://') || val.startsWith('https://');
+                        if (isUri) {
+                            const short = shortenURI(val);
+                            return `<td class="uri-cell" title="${val}">${short}</td>`;
+                        }
+                        return `<td>${escapeHtml(val)}</td>`;
+                    }).join('') + '</tr>';
+                }).join('');
+            }
+        }
+
+        // Raw JSON
+        document.getElementById('resultsRaw').textContent = JSON.stringify(response.results, null, 2);
+    }
+
+    function displayError(message) {
+        resultsCard.style.display = 'none';
+        errorCard.style.display = '';
+        document.getElementById('errorMessage').textContent = message;
+    }
+
+    async function loadExamples() {
+        try {
+            const response = await apiCall('/sparql/examples');
+            const container = document.getElementById('examplesList');
+            
+            if (!response.success || !response.examples.length) {
+                container.innerHTML = '<div class="text-muted p-3">No examples available</div>';
+                return;
+            }
+
+            container.innerHTML = response.examples.map(ex => `
+                <a href="#" class="list-group-item list-group-item-action example-card py-2" data-query="${escapeAttr(ex.query)}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong class="d-block" style="font-size: 0.85rem;">${ex.name}</strong>
+                            <small class="text-muted">${ex.description}</small>
+                        </div>
+                        <i class="bi bi-arrow-right-short text-muted"></i>
+                    </div>
+                </a>
+            `).join('');
+
+            // Click to load example
+            container.querySelectorAll('.example-card').forEach(card => {
+                card.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    queryEditor.value = this.dataset.query;
+                    queryEditor.focus();
+                    // Scroll to editor on mobile
+                    queryEditor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+            });
+        } catch (error) {
+            console.error('Error loading examples:', error);
+        }
+    }
+
+    async function loadPrefixes() {
+        try {
+            const response = await apiCall('/sparql/prefixes');
+            const container = document.getElementById('prefixList');
+            const hintsContainer = document.getElementById('prefixHints');
+            
+            if (!response.success) return;
+
+            const prefixes = response.prefixes;
+            const keys = Object.keys(prefixes).sort();
+
+            // Full list in sidebar
+            container.innerHTML = '<div class="d-flex flex-wrap gap-1">' +
+                keys.map(k => `<span class="prefix-badge" data-prefix="${k}" data-uri="${prefixes[k]}" title="${prefixes[k]}">${k}:</span>`).join('') +
+                '</div>';
+
+            // Quick hints above execute button (just common ones)
+            const common = ['rdf', 'rdfs', 'owl', 'skos', 'med', 'medtype', 'medrel'];
+            hintsContainer.innerHTML = common
+                .filter(k => prefixes[k])
+                .map(k => `<span class="prefix-badge" data-prefix="${k}" data-uri="${prefixes[k]}" title="Click to insert: PREFIX ${k}: <${prefixes[k]}>">${k}:</span>`)
+                .join('');
+
+            // Click handler for all prefix badges
+            document.querySelectorAll('.prefix-badge').forEach(badge => {
+                badge.addEventListener('click', function() {
+                    const prefix = this.dataset.prefix;
+                    const uri = this.dataset.uri;
+                    const prefixLine = `PREFIX ${prefix}: <${uri}>\n`;
+                    // Only add if not already present
+                    if (!queryEditor.value.includes(`PREFIX ${prefix}:`)) {
+                        queryEditor.value = prefixLine + queryEditor.value;
+                    }
+                    queryEditor.focus();
+                });
+            });
+        } catch (error) {
+            console.error('Error loading prefixes:', error);
+        }
+    }
+
+    async function loadQuerySources() {
+        try {
+            const response = await apiCall('/sparql/sources');
+            if (!response.success) return;
+
+            const sources = response.sources || [];
+            // Clear existing options
+            querySourceSelect.innerHTML = '';
+
+            // Group: All
+            const allSources = sources.filter(s => s.type === 'all');
+            if (allSources.length > 0) {
+                allSources.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = 'all';
+                    opt.textContent = s.name;
+                    opt.selected = true;
+                    querySourceSelect.appendChild(opt);
+                });
+            }
+
+            // Group: Local
+            const localGroup = document.createElement('optgroup');
+            localGroup.label = 'Local KG';
+
+            const localSources = sources.filter(s => s.type === 'local');
+            localSources.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = 'local';
+                opt.textContent = s.name + (s.triple_count ? ` (${s.triple_count.toLocaleString()} triples)` : '');
+                localGroup.appendChild(opt);
+            });
+            querySourceSelect.appendChild(localGroup);
+
+            // Group: Individual TTL files
+            const ttlSources = sources.filter(s => s.type === 'ttl_file');
+            if (ttlSources.length > 0) {
+                const ttlGroup = document.createElement('optgroup');
+                ttlGroup.label = 'TTL Files';
+                ttlSources.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = 'ttl:' + s.ttl_file;
+                    opt.textContent = s.name;
+                    ttlGroup.appendChild(opt);
+                });
+                querySourceSelect.appendChild(ttlGroup);
+            }
+
+            // Group: Triple Stores
+            const storeSources = sources.filter(s => s.type === 'store');
+            if (storeSources.length > 0) {
+                const storeGroup = document.createElement('optgroup');
+                storeGroup.label = 'Triple Stores';
+                storeSources.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = 'store:' + s.id;
+                    opt.textContent = s.name;
+                    if (s.endpoint) opt.title = s.endpoint;
+                    storeGroup.appendChild(opt);
+                });
+                querySourceSelect.appendChild(storeGroup);
+            }
+
+        } catch (error) {
+            console.error('Error loading query sources:', error);
+        }
+    }
+
+    function downloadCSV() {
+        if (!lastResults || !lastResults.results.length) {
+            showToast('No results to download', 'warning');
+            return;
+        }
+
+        const cols = lastResults.columns;
+        const rows = lastResults.results;
+
+        let csv = cols.join(',') + '\n';
+        rows.forEach(row => {
+            csv += cols.map(c => {
+                let val = row[c] || '';
+                // Escape quotes and wrap in quotes if contains comma
+                val = String(val).replace(/"/g, '""');
+                if (val.includes(',') || val.includes('\n') || val.includes('"')) {
+                    val = `"${val}"`;
+                }
+                return val;
+            }).join(',') + '\n';
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'sparql_results.csv';
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function shortenURI(uri) {
+        const prefixMap = {
+            'http://www.w3.org/1999/02/22-rdf-syntax-ns#': 'rdf:',
+            'http://www.w3.org/2000/01/rdf-schema#': 'rdfs:',
+            'http://www.w3.org/2002/07/owl#': 'owl:',
+            'http://www.w3.org/2004/02/skos/core#': 'skos:',
+            'http://example.org/medical/types/': 'medtype:',
+            'http://example.org/medical/relations/': 'medrel:',
+            'http://example.org/medical/': 'med:',
+        };
+        for (const [full, short] of Object.entries(prefixMap)) {
+            if (uri.startsWith(full)) return short + uri.substring(full.length);
+        }
+        // Fallback: show just local part
+        const hashIdx = uri.lastIndexOf('#');
+        const slashIdx = uri.lastIndexOf('/');
+        const idx = Math.max(hashIdx, slashIdx);
+        return idx >= 0 ? '...' + uri.substring(idx) : uri;
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function escapeAttr(str) {
+        return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+});
+</script>
+{% endblock %}

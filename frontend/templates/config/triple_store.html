@@ -1,0 +1,548 @@
+{% extends "base.html" %}
+{% block title %}Triple Store Configuration - Medical Entity Classifier{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-database me-2"></i>Triple Store Configuration</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addConfigModal">
+        <i class="bi bi-plus-circle me-1"></i>Add Configuration
+    </button>
+</div>
+
+<!-- Enabled Stores Status Card -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-activity me-2"></i>Enabled Stores Status
+    </div>
+    <div class="card-body" id="statusContainer">
+        <div class="text-center py-3">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <small class="ms-2 text-muted">Loading status…</small>
+        </div>
+    </div>
+</div>
+
+<!-- Configurations List -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-list me-2"></i>Saved Configurations
+    </div>
+    <div class="card-body" id="configsContainer">
+        <div class="text-center py-4">
+            <div class="spinner-border" role="status"></div>
+            <p class="mt-2 text-muted">Loading configurations…</p>
+        </div>
+    </div>
+</div>
+
+<!-- TTL Files Card -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-file-earmark-code me-2"></i>TTL Files in KnowledgeGraph/</span>
+    </div>
+    <div class="card-body" id="ttlFilesContainer">
+        <div class="text-center py-3">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Add / Edit Modal -->
+<div class="modal fade" id="addConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Add Triple Store Configuration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="configForm">
+                    <input type="hidden" id="configId">
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="configName" class="form-label">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="configName" required placeholder="My Triple Store">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="storeType" class="form-label">Backend Type <span class="text-danger">*</span></label>
+                            <select class="form-select" id="storeType" required>
+                                <option value="internal">Internal (rdflib + cache)</option>
+                                <option value="sparql_endpoint">External SPARQL Endpoint</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Internal settings -->
+                    <div id="internalSettings">
+                        <h6 class="text-muted mb-2"><i class="bi bi-hdd me-1"></i>Internal Settings</h6>
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label for="ttlDirectory" class="form-label">TTL Directory</label>
+                                <input type="text" class="form-control" id="ttlDirectory" placeholder="KnowledgeGraph/ (default)">
+                                <small class="text-muted">Leave empty to use the default KnowledgeGraph/ folder</small>
+                            </div>
+                            <div class="col-md-4 mb-3 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="useCache" checked>
+                                    <label class="form-check-label" for="useCache">
+                                        Enable N-Triples disk cache
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- External SPARQL settings -->
+                    <div id="externalSettings" class="d-none">
+                        <h6 class="text-muted mb-2"><i class="bi bi-cloud me-1"></i>SPARQL Endpoint Settings</h6>
+                        <div class="mb-3">
+                            <label for="sparqlQueryEndpoint" class="form-label">Query Endpoint <span class="text-danger">*</span></label>
+                            <input type="url" class="form-control" id="sparqlQueryEndpoint" placeholder="http://localhost:3030/ds/query">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="sparqlUpdateEndpoint" class="form-label">Update Endpoint</label>
+                                <input type="url" class="form-control" id="sparqlUpdateEndpoint" placeholder="http://localhost:3030/ds/update">
+                                <small class="text-muted">For SPARQL UPDATE operations</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="sparqlGspEndpoint" class="form-label">Data (GSP) Endpoint</label>
+                                <input type="url" class="form-control" id="sparqlGspEndpoint" placeholder="http://localhost:3030/ds/data">
+                                <small class="text-muted">Graph Store Protocol for TTL upload</small>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="authUsername" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="authUsername" placeholder="(optional)">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="authPassword" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="authPassword" placeholder="(optional)">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="namedGraph" class="form-label">Named Graph URI</label>
+                            <input type="text" class="form-control" id="namedGraph" placeholder="(optional — empty = default graph)">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveConfigBtn">
+                    <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                    Save Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload TTL to Store Modal -->
+<div class="modal fade" id="uploadTTLModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Load TTL into Triple Store</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="uploadConfigId">
+                <div class="mb-3">
+                    <label for="ttlFileUpload" class="form-label">Select TTL File</label>
+                    <input type="file" class="form-control" id="ttlFileUpload" accept=".ttl">
+                    <small class="text-muted">Only .ttl (Turtle RDF) files are accepted.</small>
+                </div>
+                <div id="uploadPreview" class="d-none">
+                    <div class="alert alert-info mb-0">
+                        <strong>File:</strong> <span id="previewName"></span><br>
+                        <strong>Size:</strong> <span id="previewSize"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmUploadBtn">
+                    <span class="loading-spinner spinner-border spinner-border-sm me-1" role="status"></span>
+                    <i class="bi bi-upload me-1"></i>Upload
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const configsContainer = document.getElementById('configsContainer');
+    const statusContainer = document.getElementById('statusContainer');
+    const ttlFilesContainer = document.getElementById('ttlFilesContainer');
+    const configForm = document.getElementById('configForm');
+    const saveConfigBtn = document.getElementById('saveConfigBtn');
+    const storeTypeSelect = document.getElementById('storeType');
+    const addConfigModal = new bootstrap.Modal(document.getElementById('addConfigModal'));
+    const uploadModal = new bootstrap.Modal(document.getElementById('uploadTTLModal'));
+
+    window.configsMap = {};
+
+    // Toggle internal / external fields
+    storeTypeSelect.addEventListener('change', toggleBackendFields);
+    function toggleBackendFields() {
+        const isInternal = storeTypeSelect.value === 'internal';
+        document.getElementById('internalSettings').classList.toggle('d-none', !isInternal);
+        document.getElementById('externalSettings').classList.toggle('d-none', isInternal);
+    }
+
+    // File preview
+    document.getElementById('ttlFileUpload').addEventListener('change', function() {
+        const file = this.files[0];
+        const preview = document.getElementById('uploadPreview');
+        if (file) {
+            document.getElementById('previewName').textContent = file.name;
+            document.getElementById('previewSize').textContent = formatBytes(file.size);
+            preview.classList.remove('d-none');
+        } else {
+            preview.classList.add('d-none');
+        }
+    });
+
+    // Init
+    loadStatus();
+    loadConfigs();
+    loadTTLFiles();
+
+    // ── Status ───────────────────────────────────────────────────────────
+    async function loadStatus() {
+        try {
+            const data = await apiCall('/triple-store/status/active');
+            let html = '';
+
+            if (!data.configs || data.configs.length === 0) {
+                html = '<span class="text-muted">No triple store enabled. Using default rdflib in-memory graph.</span>';
+                statusContainer.innerHTML = html;
+                return;
+            }
+
+            html += `<p class="mb-2 text-muted small">${data.message}</p>`;
+            html += '<div class="list-group list-group-flush">';
+
+            data.configs.forEach(s => {
+                const icon = s.is_connected
+                    ? '<i class="bi bi-check-circle-fill text-success me-2"></i>'
+                    : '<i class="bi bi-x-circle-fill text-danger me-2"></i>';
+                const typeBadge = s.config.store_type === 'internal'
+                    ? '<span class="badge bg-info text-dark ms-2">Internal</span>'
+                    : '<span class="badge bg-primary ms-2">External</span>';
+                let cacheBadge = '';
+                if (s.cache_status) {
+                    cacheBadge = s.cache_status === 'hit'
+                        ? '<span class="badge bg-success ms-1">cache hit</span>'
+                        : s.cache_status === 'miss'
+                        ? '<span class="badge bg-warning text-dark ms-1">cache miss</span>'
+                        : '<span class="badge bg-secondary ms-1">cache off</span>';
+                }
+                html += `
+                    <div class="list-group-item d-flex align-items-center px-0">
+                        ${icon}
+                        <div>
+                            <strong>${s.config.name}</strong>${typeBadge}${cacheBadge}
+                            <br><small class="text-muted">${s.message} — ${s.triple_count.toLocaleString()} triples</small>
+                        </div>
+                    </div>`;
+            });
+            html += '</div>';
+            statusContainer.innerHTML = html;
+        } catch (e) {
+            statusContainer.innerHTML = `<div class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>${e.message}</div>`;
+        }
+    }
+
+    // ── Configs table ────────────────────────────────────────────────────
+    async function loadConfigs() {
+        try {
+            const configs = await apiCall('/triple-store/');
+            if (configs.length === 0) {
+                configsContainer.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bi bi-database text-muted" style="font-size:3rem"></i>
+                        <h5 class="mt-3">No Configurations</h5>
+                        <p class="text-muted">Add a triple store configuration to get started.</p>
+                    </div>`;
+                return;
+            }
+
+            let html = '<div class="table-responsive"><table class="table table-hover"><thead><tr>';
+            html += '<th>Name</th><th>Type</th><th>Details</th><th>Status</th><th>Actions</th>';
+            html += '</tr></thead><tbody>';
+
+            window.configsMap = {};
+            configs.forEach(c => {
+                window.configsMap[String(c.id)] = c;
+                const enabledBadge = c.is_active
+                    ? '<span class="badge bg-success ms-2">Enabled</span>'
+                    : '<span class="badge bg-secondary ms-2">Disabled</span>';
+                const typeBadge = c.store_type === 'internal'
+                    ? '<span class="badge bg-info text-dark">Internal</span>'
+                    : '<span class="badge bg-primary">External</span>';
+                const details = c.store_type === 'internal'
+                    ? `<code class="small">${c.ttl_directory || 'KnowledgeGraph/'}</code>`
+                    : `<code class="small">${c.sparql_query_endpoint || '—'}</code>`;
+                const toggleIcon = c.is_active ? 'bi-toggle-on text-success' : 'bi-toggle-off text-secondary';
+                const toggleTitle = c.is_active ? 'Disable' : 'Enable';
+
+                html += `<tr>
+                    <td><strong>${c.name}</strong>${enabledBadge}</td>
+                    <td>${typeBadge}</td>
+                    <td>${details}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary test-btn" data-id="${c.id}">
+                            <i class="bi bi-wifi"></i> Test
+                        </button>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${c.id}" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-success upload-btn" data-id="${c.id}" title="Load TTL">
+                            <i class="bi bi-upload"></i>
+                        </button>
+                        <button class="btn btn-sm toggle-btn" data-id="${c.id}" title="${toggleTitle}">
+                            <i class="bi ${toggleIcon}" style="font-size:1.2rem"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${c.id}" data-name="${c.name}" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            });
+            html += '</tbody></table></div>';
+            configsContainer.innerHTML = html;
+
+            // Wire events
+            document.querySelectorAll('.test-btn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const id = this.dataset.id;
+                    this.disabled = true;
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                    try {
+                        const res = await apiCall(`/triple-store/${id}/test`, 'POST');
+                        this.innerHTML = res.success
+                            ? '<i class="bi bi-check-circle text-success"></i> OK'
+                            : '<i class="bi bi-x-circle text-danger"></i> Fail';
+                        showToast(res.message, res.success ? 'success' : 'error');
+                    } catch (e) {
+                        this.innerHTML = '<i class="bi bi-x-circle text-danger"></i>';
+                        showToast(e.message, 'error');
+                    }
+                    setTimeout(() => { this.disabled = false; this.innerHTML = '<i class="bi bi-wifi"></i> Test'; }, 3000);
+                });
+            });
+
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const c = window.configsMap[this.dataset.id];
+                    if (!c) return;
+                    window.isEditMode = true;
+                    document.getElementById('modalTitle').textContent = 'Edit Triple Store Configuration';
+                    document.getElementById('configId').value = c.id;
+                    document.getElementById('configName').value = c.name;
+                    storeTypeSelect.value = c.store_type;
+                    toggleBackendFields();
+                    document.getElementById('ttlDirectory').value = c.ttl_directory || '';
+                    document.getElementById('useCache').checked = c.use_cache !== false;
+                    document.getElementById('sparqlQueryEndpoint').value = c.sparql_query_endpoint || '';
+                    document.getElementById('sparqlUpdateEndpoint').value = c.sparql_update_endpoint || '';
+                    document.getElementById('sparqlGspEndpoint').value = c.sparql_gsp_endpoint || '';
+                    document.getElementById('authUsername').value = c.auth_username || '';
+                    document.getElementById('authPassword').value = '';
+                    document.getElementById('namedGraph').value = c.named_graph || '';
+                    addConfigModal.show();
+                });
+            });
+
+            document.querySelectorAll('.upload-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.getElementById('uploadConfigId').value = this.dataset.id;
+                    document.getElementById('ttlFileUpload').value = '';
+                    document.getElementById('uploadPreview').classList.add('d-none');
+                    uploadModal.show();
+                });
+            });
+
+            document.querySelectorAll('.toggle-btn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const id = this.dataset.id;
+                    this.disabled = true;
+                    try {
+                        const res = await apiCall(`/triple-store/${id}/toggle`, 'POST');
+                        const verb = res.is_active ? 'enabled' : 'disabled';
+                        showToast(`Triple store ${verb}!`, 'success');
+                        loadConfigs();
+                        loadStatus();
+                    } catch (e) {
+                        showToast('Toggle failed: ' + e.message, 'error');
+                    } finally {
+                        this.disabled = false;
+                    }
+                });
+            });
+
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const name = this.dataset.name;
+                    if (!confirm(`Delete configuration "${name}"?`)) return;
+                    try {
+                        await apiCall(`/triple-store/${this.dataset.id}`, 'DELETE');
+                        showToast('Deleted', 'success');
+                        loadConfigs();
+                        loadStatus();
+                    } catch (e) {
+                        showToast(e.message, 'error');
+                    }
+                });
+            });
+
+        } catch (e) {
+            configsContainer.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
+        }
+    }
+
+    // ── TTL files ────────────────────────────────────────────────────────
+    async function loadTTLFiles() {
+        try {
+            const data = await apiCall('/triple-store/files/list');
+            const files = data.files || [];
+            if (files.length === 0) {
+                ttlFilesContainer.innerHTML = '<p class="text-muted small mb-0">No TTL files in KnowledgeGraph/.</p>';
+                return;
+            }
+            let html = '<div class="list-group list-group-flush">';
+            files.forEach(f => {
+                const modified = new Date(f.modified * 1000).toLocaleDateString();
+                const toggleIcon = f.enabled ? 'bi-toggle-on text-success' : 'bi-toggle-off text-secondary';
+                const statusBadge = f.enabled
+                    ? '<span class="badge bg-success ms-2">Enabled</span>'
+                    : '<span class="badge bg-secondary ms-2">Disabled</span>';
+                html += `
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <i class="bi bi-file-earmark-code text-primary me-2"></i>
+                            <strong>${f.name}</strong>${statusBadge}
+                            <br><small class="text-muted">${formatBytes(f.size)} • Modified: ${modified}</small>
+                        </div>
+                        <button class="btn btn-sm ttl-toggle-btn" data-name="${f.name}" title="${f.enabled ? 'Disable' : 'Enable'}">
+                            <i class="bi ${toggleIcon}" style="font-size:1.3rem"></i>
+                        </button>
+                    </div>`;
+            });
+            html += '</div>';
+            ttlFilesContainer.innerHTML = html;
+
+            // Wire TTL toggle events
+            document.querySelectorAll('.ttl-toggle-btn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const name = this.dataset.name;
+                    this.disabled = true;
+                    try {
+                        const res = await apiCall(`/triple-store/files/toggle?filename=${encodeURIComponent(name)}`, 'POST');
+                        const verb = res.enabled ? 'enabled' : 'disabled';
+                        showToast(`${name} ${verb}`, 'success');
+                        loadTTLFiles();
+                        loadStatus();
+                    } catch (e) {
+                        showToast('Toggle failed: ' + e.message, 'error');
+                    } finally {
+                        this.disabled = false;
+                    }
+                });
+            });
+        } catch (e) {
+            ttlFilesContainer.innerHTML = `<p class="text-danger small">${e.message}</p>`;
+        }
+    }
+
+    // ── Upload TTL ───────────────────────────────────────────────────────
+    document.getElementById('confirmUploadBtn').addEventListener('click', async function() {
+        const file = document.getElementById('ttlFileUpload').files[0];
+        if (!file) { showToast('Select a file first', 'error'); return; }
+        const id = document.getElementById('uploadConfigId').value;
+        const btn = this;
+        btn.classList.add('loading'); btn.disabled = true;
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const resp = await fetch(`/triple-store/${id}/load-ttl`, { method: 'POST', body: formData });
+            const result = await resp.json();
+            if (!resp.ok) throw new Error(result.detail || 'Upload failed');
+            showToast(`Loaded ${result.new_triples} new triples (total: ${result.total_triples})`, 'success');
+            uploadModal.hide();
+            loadStatus();
+            loadTTLFiles();
+        } catch (e) {
+            showToast(e.message, 'error');
+        } finally {
+            btn.classList.remove('loading'); btn.disabled = false;
+        }
+    });
+
+    // ── Modal reset ──────────────────────────────────────────────────────
+    document.getElementById('addConfigModal').addEventListener('show.bs.modal', function() {
+        if (!window.isEditMode) {
+            document.getElementById('modalTitle').textContent = 'Add Triple Store Configuration';
+            configForm.reset();
+            document.getElementById('configId').value = '';
+            storeTypeSelect.value = 'internal';
+            toggleBackendFields();
+        }
+    });
+    document.getElementById('addConfigModal').addEventListener('hidden.bs.modal', function() {
+        window.isEditMode = false;
+    });
+
+    // ── Save config ──────────────────────────────────────────────────────
+    saveConfigBtn.addEventListener('click', async function() {
+        if (!configForm.checkValidity()) { configForm.reportValidity(); return; }
+        const id = document.getElementById('configId').value;
+        const data = {
+            name: document.getElementById('configName').value,
+            store_type: storeTypeSelect.value,
+            ttl_directory: document.getElementById('ttlDirectory').value || null,
+            use_cache: document.getElementById('useCache').checked,
+            sparql_query_endpoint: document.getElementById('sparqlQueryEndpoint').value || null,
+            sparql_update_endpoint: document.getElementById('sparqlUpdateEndpoint').value || null,
+            sparql_gsp_endpoint: document.getElementById('sparqlGspEndpoint').value || null,
+            auth_username: document.getElementById('authUsername').value || null,
+            auth_password: document.getElementById('authPassword').value || null,
+            named_graph: document.getElementById('namedGraph').value || null,
+        };
+
+        saveConfigBtn.classList.add('loading'); saveConfigBtn.disabled = true;
+        try {
+            if (id) {
+                await apiCall(`/triple-store/${id}`, 'PUT', data);
+            } else {
+                await apiCall('/triple-store/', 'POST', data);
+            }
+            showToast('Configuration saved!', 'success');
+            addConfigModal.hide();
+            loadConfigs();
+            loadStatus();
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        } finally {
+            saveConfigBtn.classList.remove('loading'); saveConfigBtn.disabled = false;
+        }
+    });
+
+    function formatBytes(b) {
+        if (b === 0) return '0 B';
+        const k = 1024, sizes = ['B','KB','MB','GB'];
+        const i = Math.floor(Math.log(b) / Math.log(k));
+        return parseFloat((b / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+});
+</script>
+{% endblock %}

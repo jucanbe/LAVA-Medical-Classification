@@ -1,0 +1,991 @@
+{% extends "base.html" %}
+{% block title %}LLM Configuration - Medical Entity Classifier{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-server me-2"></i>LLM Server Configuration</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addConfigModal">
+        <i class="bi bi-plus-circle me-1"></i>Add Configuration
+    </button>
+</div>
+
+<!-- Configurations List -->
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-list me-2"></i>Saved Configurations
+    </div>
+    <div class="card-body" id="configsContainer">
+        <div class="text-center py-4">
+            <div class="spinner-border" role="status"></div>
+            <p class="mt-2 text-muted">Loading configurations...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="addConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Add LLM Configuration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="configForm">
+                    <input type="hidden" id="configId">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="configName" class="form-label">Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="configName" required placeholder="My LLM Server">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="modelName" class="form-label">Model Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="modelName" required placeholder="model-identifier">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="baseUrl" class="form-label">Base URL <span class="text-danger">*</span></label>
+                        <input type="url" class="form-control" id="baseUrl" required placeholder="http://localhost:1234/v1">
+                    </div>
+                    <div class="mb-3">
+                        <label for="apiKey" class="form-label">API Key</label>
+                        <input type="password" class="form-control" id="apiKey" placeholder="lm-studio (or leave empty)">
+                        <small class="text-muted">Leave empty or use 'lm-studio' for LM Studio</small>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="isDefault">
+                        <label class="form-check-label" for="isDefault">Set as default</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveConfigBtn">
+                    <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                    Save Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Edit Entity Prompt Modal -->
+<div class="modal fade" id="entityPromptModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-journal-medical me-2"></i>Entity Classification Prompt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="entityPromptConfigId">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted">System prompt used when classifying entities with this LLM config</small>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="resetEntityPromptBtn">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Restore Default
+                    </button>
+                </div>
+                <textarea class="form-control font-monospace" id="entityPromptText" rows="16" style="font-size: 0.85rem;"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEntityPromptBtn">
+                    <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                    Save Entity Prompt
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Relation Prompt Modal -->
+<div class="modal fade" id="relationPromptModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-arrow-left-right me-2"></i>Relation Classification Prompt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="relationPromptConfigId">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted">System prompt used when classifying relations with this LLM config</small>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="resetRelationPromptBtn">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Restore Default
+                    </button>
+                </div>
+                <textarea class="form-control font-monospace" id="relationPromptText" rows="16" style="font-size: 0.85rem;"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveRelationPromptBtn">
+                    <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                    Save Relation Prompt
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Classify All Prompt Modal -->
+<div class="modal fade" id="classifyAllPromptModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-stars me-2"></i>Classify All Prompt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="classifyAllPromptConfigId">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted">System prompt used for joint entity + relation extraction (Classify All page)</small>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="resetClassifyAllPromptBtn">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Restore Default
+                    </button>
+                </div>
+                <textarea class="form-control font-monospace" id="classifyAllPromptText" rows="18" style="font-size: 0.85rem;"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveClassifyAllPromptBtn">
+                    <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                    Save Classify All Prompt
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KG Samples Modal -->
+<div class="modal fade" id="kgSamplesModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-database me-2"></i>Entities and Relations Samples</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="kgSamplesConfigId">
+                <small class="text-muted d-block mb-3">
+                    Define custom entity and relation samples used as few-shot examples when extracting.
+                    These guide the model on what to extract and how to format the output.
+                </small>
+
+                <!-- Tabs -->
+                <ul class="nav nav-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#samplesEntitiesTab" type="button">
+                            <i class="bi bi-tag me-1"></i>Entities <span class="badge bg-primary ms-1" id="samplesEntityCount">0</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#samplesRelationsTab" type="button">
+                            <i class="bi bi-arrow-left-right me-1"></i>Relations <span class="badge bg-warning text-dark ms-1" id="samplesRelationCount">0</span>
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content border border-top-0 rounded-bottom p-3" style="max-height: 450px; overflow-y: auto;">
+                    <!-- Entities Tab -->
+                    <div class="tab-pane fade show active" id="samplesEntitiesTab">
+                        <div class="d-flex justify-content-end mb-2">
+                            <button class="btn btn-sm btn-outline-primary" id="addSampleEntityBtn">
+                                <i class="bi bi-plus-circle me-1"></i>Add Entity
+                            </button>
+                        </div>
+                        <div id="samplesEntitiesList"></div>
+                    </div>
+                    <!-- Relations Tab -->
+                    <div class="tab-pane fade" id="samplesRelationsTab">
+                        <div class="d-flex justify-content-end mb-2">
+                            <button class="btn btn-sm btn-outline-warning" id="addSampleRelationBtn">
+                                <i class="bi bi-plus-circle me-1"></i>Add Relation
+                            </button>
+                        </div>
+                        <div id="samplesRelationsList"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger me-auto" id="clearAllSamplesBtn">
+                    <i class="bi bi-trash me-1"></i>Clear All
+                </button>
+                <button type="button" class="btn btn-primary" id="saveKgSamplesBtn">
+                    <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                    Save Samples
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Sample Entity Modal -->
+<div class="modal fade" id="sampleEntityFormModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sampleEntityFormTitle">Add Entity Sample</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="sampleEntityIdx" value="-1">
+                <div class="mb-3">
+                    <label class="form-label">Text <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="sampleEntityText" placeholder="e.g. Pulmonary embolism" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Entity Type <span class="text-danger">*</span></label>
+                    <select class="form-select" id="sampleEntityType">
+                        <option value="disease">disease</option>
+                        <option value="symptom">symptom</option>
+                        <option value="finding">finding</option>
+                        <option value="organ">organ</option>
+                        <option value="imaging_procedure">imaging_procedure</option>
+                        <option value="examination_procedure">examination_procedure</option>
+                        <option value="therapeutic_procedure">therapeutic_procedure</option>
+                        <option value="imaging_result">imaging_result</option>
+                        <option value="examination_measure">examination_measure</option>
+                        <option value="parameter">parameter</option>
+                        <option value="score">score</option>
+                        <option value="therapy">therapy</option>
+                        <option value="substance">substance</option>
+                        <option value="adverse_event">adverse_event</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Attributes <small class="text-muted">(optional, JSON)</small></label>
+                    <input type="text" class="form-control" id="sampleEntityAttrs" placeholder='e.g. {"detail": "blood clot in lung"}'>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveSampleEntityBtn">Save Entity</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Sample Relation Modal -->
+<div class="modal fade" id="sampleRelationFormModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sampleRelationFormTitle">Add Relation Sample</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="sampleRelationIdx" value="-1">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Source Entity <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="sampleRelSource" placeholder="e.g. Heparin" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Source Type</label>
+                        <select class="form-select" id="sampleRelSourceType">
+                            <option value="disease">disease</option>
+                            <option value="symptom">symptom</option>
+                            <option value="finding">finding</option>
+                            <option value="organ">organ</option>
+                            <option value="imaging_procedure">imaging_procedure</option>
+                            <option value="examination_procedure">examination_procedure</option>
+                            <option value="therapeutic_procedure">therapeutic_procedure</option>
+                            <option value="imaging_result">imaging_result</option>
+                            <option value="examination_measure">examination_measure</option>
+                            <option value="parameter">parameter</option>
+                            <option value="score">score</option>
+                            <option value="therapy">therapy</option>
+                            <option value="substance" selected>substance</option>
+                            <option value="adverse_event">adverse_event</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Relation Type <span class="text-danger">*</span></label>
+                    <select class="form-select" id="sampleRelType">
+                        <option value="has_symptom">has_symptom</option>
+                        <option value="has_finding">has_finding</option>
+                        <option value="suggests">suggests</option>
+                        <option value="located_in">located_in</option>
+                        <option value="indicated_for">indicated_for</option>
+                        <option value="produces_result">produces_result</option>
+                        <option value="treats" selected>treats</option>
+                        <option value="first_line_for">first_line_for</option>
+                        <option value="contraindicated_in">contraindicated_in</option>
+                        <option value="rules_out">rules_out</option>
+                        <option value="assesses">assesses</option>
+                        <option value="affects">affects</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Target Entity <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="sampleRelTarget" placeholder="e.g. Pulmonary embolism" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Target Type</label>
+                        <select class="form-select" id="sampleRelTargetType">
+                            <option value="disease" selected>disease</option>
+                            <option value="symptom">symptom</option>
+                            <option value="finding">finding</option>
+                            <option value="organ">organ</option>
+                            <option value="imaging_procedure">imaging_procedure</option>
+                            <option value="examination_procedure">examination_procedure</option>
+                            <option value="therapeutic_procedure">therapeutic_procedure</option>
+                            <option value="imaging_result">imaging_result</option>
+                            <option value="examination_measure">examination_measure</option>
+                            <option value="parameter">parameter</option>
+                            <option value="score">score</option>
+                            <option value="therapy">therapy</option>
+                            <option value="substance">substance</option>
+                            <option value="adverse_event">adverse_event</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveSampleRelationBtn">Save Relation</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const configsContainer = document.getElementById('configsContainer');
+    const configForm = document.getElementById('configForm');
+    const saveConfigBtn = document.getElementById('saveConfigBtn');
+    const addConfigModal = new bootstrap.Modal(document.getElementById('addConfigModal'));
+
+    // Prompt modals
+    const entityPromptModal = new bootstrap.Modal(document.getElementById('entityPromptModal'));
+    const relationPromptModal = new bootstrap.Modal(document.getElementById('relationPromptModal'));
+    const classifyAllPromptModal = new bootstrap.Modal(document.getElementById('classifyAllPromptModal'));
+    const kgSamplesModal = new bootstrap.Modal(document.getElementById('kgSamplesModal'));
+    const sampleEntityFormModal = new bootstrap.Modal(document.getElementById('sampleEntityFormModal'));
+    const sampleRelationFormModal = new bootstrap.Modal(document.getElementById('sampleRelationFormModal'));
+
+    // Cache default prompts
+    let defaultEntityPrompt = '';
+    let defaultRelationPrompt = '';
+    let defaultClassifyAllPrompt = '';
+
+    // --- KG Samples in-memory state ---
+    let currentSamplesConfigId = null;
+    let currentSamples = { entities: [], relations: [] };
+
+    function _countSamples(config, key) {
+        if (!config.kg_samples) return 0;
+        try {
+            const d = typeof config.kg_samples === 'string' ? JSON.parse(config.kg_samples) : config.kg_samples;
+            return (d[key] || []).length;
+        } catch { return 0; }
+    }
+
+    // Load default prompts on startup
+    loadDefaultPrompts();
+    loadConfigurations();
+
+    async function loadDefaultPrompts() {
+        try {
+            const response = await apiCall('/llm-config/default-prompt');
+            defaultEntityPrompt = response.entity_prompt || '';
+            defaultRelationPrompt = response.relation_prompt || '';
+            defaultClassifyAllPrompt = response.classify_all_prompt || '';
+            console.log('Default prompts loaded successfully');
+        } catch (error) {
+            console.error('Error loading default prompts:', error);
+            setTimeout(loadDefaultPrompts, 2000);
+        }
+    }
+
+    // --- Entity Prompt Modal handlers ---
+    document.getElementById('resetEntityPromptBtn').addEventListener('click', function() {
+        if (defaultEntityPrompt) {
+            document.getElementById('entityPromptText').value = defaultEntityPrompt;
+            showToast('Entity prompt reset to default', 'info');
+        } else {
+            showToast('Default prompt not loaded yet', 'warning');
+        }
+    });
+
+    document.getElementById('saveEntityPromptBtn').addEventListener('click', async function() {
+        const id = document.getElementById('entityPromptConfigId').value;
+        const promptValue = document.getElementById('entityPromptText').value.trim();
+        const btn = this;
+        btn.classList.add('loading');
+        btn.disabled = true;
+        try {
+            await apiCall(`/llm-config/${id}?verify_connection=false`, 'PUT', {
+                entity_prompt: promptValue || null
+            });
+            showToast('Entity prompt saved!', 'success');
+            entityPromptModal.hide();
+            loadConfigurations();
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        } finally {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+    });
+
+    // --- Relation Prompt Modal handlers ---
+    document.getElementById('resetRelationPromptBtn').addEventListener('click', function() {
+        if (defaultRelationPrompt) {
+            document.getElementById('relationPromptText').value = defaultRelationPrompt;
+            showToast('Relation prompt reset to default', 'info');
+        } else {
+            showToast('Default prompt not loaded yet', 'warning');
+        }
+    });
+
+    document.getElementById('saveRelationPromptBtn').addEventListener('click', async function() {
+        const id = document.getElementById('relationPromptConfigId').value;
+        const promptValue = document.getElementById('relationPromptText').value.trim();
+        const btn = this;
+        btn.classList.add('loading');
+        btn.disabled = true;
+        try {
+            await apiCall(`/llm-config/${id}?verify_connection=false`, 'PUT', {
+                relation_prompt: promptValue || null
+            });
+            showToast('Relation prompt saved!', 'success');
+            relationPromptModal.hide();
+            loadConfigurations();
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        } finally {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+    });
+
+    // --- Classify All Prompt Modal handlers ---
+    document.getElementById('resetClassifyAllPromptBtn').addEventListener('click', function() {
+        if (defaultClassifyAllPrompt) {
+            document.getElementById('classifyAllPromptText').value = defaultClassifyAllPrompt;
+            showToast('Classify All prompt reset to default', 'info');
+        } else {
+            showToast('Default prompt not loaded yet', 'warning');
+        }
+    });
+
+    document.getElementById('saveClassifyAllPromptBtn').addEventListener('click', async function() {
+        const id = document.getElementById('classifyAllPromptConfigId').value;
+        const promptValue = document.getElementById('classifyAllPromptText').value.trim();
+        const btn = this;
+        btn.classList.add('loading');
+        btn.disabled = true;
+        try {
+            await apiCall(`/llm-config/${id}?verify_connection=false`, 'PUT', {
+                classify_all_prompt: promptValue || null
+            });
+            showToast('Classify All prompt saved!', 'success');
+            classifyAllPromptModal.hide();
+            loadConfigurations();
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        } finally {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+    });
+
+    // =====================================================================
+    // KG Samples Management
+    // =====================================================================
+    function renderSamplesEntities() {
+        const list = document.getElementById('samplesEntitiesList');
+        document.getElementById('samplesEntityCount').textContent = currentSamples.entities.length;
+        if (currentSamples.entities.length === 0) {
+            list.innerHTML = '<p class="text-muted text-center py-3">No entity samples defined. Click "Add Entity" to create one.</p>';
+            return;
+        }
+        let html = '<table class="table table-sm table-bordered mb-0"><thead><tr><th>Text</th><th>Type</th><th>Attributes</th><th style="width:90px"></th></tr></thead><tbody>';
+        currentSamples.entities.forEach((ent, idx) => {
+            const attrs = ent.attributes && Object.keys(ent.attributes).length > 0
+                ? '<code class="small">' + Object.entries(ent.attributes).map(([k,v]) => `${k}: ${v}`).join(', ') + '</code>'
+                : '<span class="text-muted">—</span>';
+            html += `<tr>
+                <td>${ent.text}</td>
+                <td><span class="badge bg-primary">${ent.entity_type}</span></td>
+                <td>${attrs}</td>
+                <td class="text-nowrap">
+                    <button class="btn btn-sm btn-outline-primary edit-sample-entity" data-idx="${idx}"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger delete-sample-entity" data-idx="${idx}"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        list.innerHTML = html;
+
+        list.querySelectorAll('.edit-sample-entity').forEach(btn => {
+            btn.addEventListener('click', () => openSampleEntityForm(parseInt(btn.dataset.idx)));
+        });
+        list.querySelectorAll('.delete-sample-entity').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentSamples.entities.splice(parseInt(btn.dataset.idx), 1);
+                renderSamplesEntities();
+            });
+        });
+    }
+
+    function renderSamplesRelations() {
+        const list = document.getElementById('samplesRelationsList');
+        document.getElementById('samplesRelationCount').textContent = currentSamples.relations.length;
+        if (currentSamples.relations.length === 0) {
+            list.innerHTML = '<p class="text-muted text-center py-3">No relation samples defined. Click "Add Relation" to create one.</p>';
+            return;
+        }
+        let html = '<table class="table table-sm table-bordered mb-0"><thead><tr><th>Source</th><th>Relation</th><th>Target</th><th style="width:90px"></th></tr></thead><tbody>';
+        currentSamples.relations.forEach((rel, idx) => {
+            html += `<tr>
+                <td>${rel.source_entity} <span class="badge bg-secondary">${rel.source_type}</span></td>
+                <td><span class="badge bg-warning text-dark">${rel.relation_type}</span></td>
+                <td>${rel.target_entity} <span class="badge bg-secondary">${rel.target_type}</span></td>
+                <td class="text-nowrap">
+                    <button class="btn btn-sm btn-outline-primary edit-sample-relation" data-idx="${idx}"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger delete-sample-relation" data-idx="${idx}"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        list.innerHTML = html;
+
+        list.querySelectorAll('.edit-sample-relation').forEach(btn => {
+            btn.addEventListener('click', () => openSampleRelationForm(parseInt(btn.dataset.idx)));
+        });
+        list.querySelectorAll('.delete-sample-relation').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentSamples.relations.splice(parseInt(btn.dataset.idx), 1);
+                renderSamplesRelations();
+            });
+        });
+    }
+
+    // --- Entity form ---
+    function openSampleEntityForm(idx) {
+        const isEdit = idx >= 0;
+        document.getElementById('sampleEntityFormTitle').textContent = isEdit ? 'Edit Entity Sample' : 'Add Entity Sample';
+        document.getElementById('sampleEntityIdx').value = idx;
+        if (isEdit && currentSamples.entities[idx]) {
+            const ent = currentSamples.entities[idx];
+            document.getElementById('sampleEntityText').value = ent.text;
+            document.getElementById('sampleEntityType').value = ent.entity_type;
+            document.getElementById('sampleEntityAttrs').value = ent.attributes && Object.keys(ent.attributes).length > 0
+                ? JSON.stringify(ent.attributes) : '';
+        } else {
+            document.getElementById('sampleEntityText').value = '';
+            document.getElementById('sampleEntityType').value = 'disease';
+            document.getElementById('sampleEntityAttrs').value = '';
+        }
+        sampleEntityFormModal.show();
+    }
+
+    document.getElementById('addSampleEntityBtn').addEventListener('click', () => openSampleEntityForm(-1));
+
+    document.getElementById('saveSampleEntityBtn').addEventListener('click', function() {
+        const text = document.getElementById('sampleEntityText').value.trim();
+        const etype = document.getElementById('sampleEntityType').value;
+        if (!text) { showToast('Entity text is required', 'warning'); return; }
+        let attrs = {};
+        const attrsRaw = document.getElementById('sampleEntityAttrs').value.trim();
+        if (attrsRaw) {
+            try { attrs = JSON.parse(attrsRaw); } catch { showToast('Invalid JSON for attributes', 'warning'); return; }
+        }
+        const idx = parseInt(document.getElementById('sampleEntityIdx').value);
+        const entry = { text, entity_type: etype, attributes: attrs };
+        if (idx >= 0) {
+            currentSamples.entities[idx] = entry;
+        } else {
+            currentSamples.entities.push(entry);
+        }
+        sampleEntityFormModal.hide();
+        renderSamplesEntities();
+    });
+
+    // --- Relation form ---
+    function openSampleRelationForm(idx) {
+        const isEdit = idx >= 0;
+        document.getElementById('sampleRelationFormTitle').textContent = isEdit ? 'Edit Relation Sample' : 'Add Relation Sample';
+        document.getElementById('sampleRelationIdx').value = idx;
+        if (isEdit && currentSamples.relations[idx]) {
+            const rel = currentSamples.relations[idx];
+            document.getElementById('sampleRelSource').value = rel.source_entity;
+            document.getElementById('sampleRelSourceType').value = rel.source_type;
+            document.getElementById('sampleRelType').value = rel.relation_type;
+            document.getElementById('sampleRelTarget').value = rel.target_entity;
+            document.getElementById('sampleRelTargetType').value = rel.target_type;
+        } else {
+            document.getElementById('sampleRelSource').value = '';
+            document.getElementById('sampleRelSourceType').value = 'substance';
+            document.getElementById('sampleRelType').value = 'treats';
+            document.getElementById('sampleRelTarget').value = '';
+            document.getElementById('sampleRelTargetType').value = 'disease';
+        }
+        sampleRelationFormModal.show();
+    }
+
+    document.getElementById('addSampleRelationBtn').addEventListener('click', () => openSampleRelationForm(-1));
+
+    document.getElementById('saveSampleRelationBtn').addEventListener('click', function() {
+        const src = document.getElementById('sampleRelSource').value.trim();
+        const tgt = document.getElementById('sampleRelTarget').value.trim();
+        if (!src || !tgt) { showToast('Source and target entities are required', 'warning'); return; }
+        const entry = {
+            source_entity: src,
+            source_type: document.getElementById('sampleRelSourceType').value,
+            relation_type: document.getElementById('sampleRelType').value,
+            target_entity: tgt,
+            target_type: document.getElementById('sampleRelTargetType').value,
+        };
+        const idx = parseInt(document.getElementById('sampleRelationIdx').value);
+        if (idx >= 0) {
+            currentSamples.relations[idx] = entry;
+        } else {
+            currentSamples.relations.push(entry);
+        }
+        sampleRelationFormModal.hide();
+        renderSamplesRelations();
+    });
+
+    // --- Clear all ---
+    document.getElementById('clearAllSamplesBtn').addEventListener('click', function() {
+        if (confirm('Remove all entity and relation samples?')) {
+            currentSamples = { entities: [], relations: [] };
+            renderSamplesEntities();
+            renderSamplesRelations();
+        }
+    });
+
+    // --- Save to server ---
+    document.getElementById('saveKgSamplesBtn').addEventListener('click', async function() {
+        const btn = this;
+        btn.classList.add('loading');
+        btn.disabled = true;
+        try {
+            const hasData = currentSamples.entities.length > 0 || currentSamples.relations.length > 0;
+            await apiCall(`/llm-config/${currentSamplesConfigId}?verify_connection=false`, 'PUT', {
+                kg_samples: hasData ? JSON.stringify(currentSamples) : null
+            });
+            showToast(`Samples saved! (${currentSamples.entities.length} entities, ${currentSamples.relations.length} relations)`, 'success');
+            kgSamplesModal.hide();
+            loadConfigurations();
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        } finally {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+    });
+
+    // --- Load configurations table ---
+    async function loadConfigurations() {
+        try {
+            const configs = await apiCall('/llm-config/');
+
+            if (configs.length === 0) {
+                configsContainer.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bi bi-server text-muted" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">No Configurations</h5>
+                        <p class="text-muted">Add an LLM server configuration to get started.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div class="table-responsive"><table class="table table-hover">';
+            html += `
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>URL</th>
+                        <th>Model</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+
+            window.configsMap = {};
+
+            configs.forEach(config => {
+                window.configsMap[String(config.id)] = config;
+
+                const defaultBadge = config.is_default
+                    ? '<span class="badge bg-success ms-2">Default</span>'
+                    : '';
+
+                const starIcon = config.is_default
+                    ? '<i class="bi bi-star-fill text-warning"></i>'
+                    : '<i class="bi bi-star"></i>';
+
+                html += `
+                    <tr>
+                        <td>
+                            <strong>${config.name}</strong>${defaultBadge}
+                        </td>
+                        <td><code class="small">${config.base_url}</code></td>
+                        <td><small>${config.model_name}</small></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-secondary test-config" data-id="${config.id}">
+                                <i class="bi bi-wifi"></i> Test
+                            </button>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary edit-config" data-id="${config.id}" title="Edit configuration">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-info edit-entity-prompt" data-id="${config.id}" title="Entity prompt">
+                                <i class="bi bi-journal-medical"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning edit-relation-prompt" data-id="${config.id}" title="Relation prompt">
+                                <i class="bi bi-arrow-left-right"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary edit-classify-all-prompt" data-id="${config.id}" title="Classify All prompt">
+                                <i class="bi bi-stars"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-dark edit-kg-samples" data-id="${config.id}" title="Entities and relations samples">
+                                <i class="bi bi-database"></i>
+                                <span class="badge bg-primary rounded-pill ms-1 sample-ent-count" style="font-size:.65em">${_countSamples(config, 'entities')}</span>
+                                <span class="badge bg-warning text-dark rounded-pill sample-rel-count" style="font-size:.65em">${_countSamples(config, 'relations')}</span>
+                            </button>
+                            ${!config.is_default ? `
+                                <button class="btn btn-sm btn-outline-success set-default" data-id="${config.id}">
+                                    ${starIcon}
+                                </button>
+                            ` : `
+                                <span class="btn btn-sm btn-success disabled">${starIcon}</span>
+                            `}
+                            <button class="btn btn-sm btn-outline-danger delete-config" data-id="${config.id}" data-name="${config.name}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table></div>';
+            configsContainer.innerHTML = html;
+
+            // --- Event listeners ---
+
+            // Test connection
+            document.querySelectorAll('.test-config').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const id = this.dataset.id;
+                    this.disabled = true;
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+                    try {
+                        await apiCall(`/llm-config/${id}/test`, 'POST');
+                        this.innerHTML = '<i class="bi bi-check-circle text-success"></i> OK';
+                        showToast('Connection successful!', 'success');
+                    } catch (error) {
+                        this.innerHTML = '<i class="bi bi-x-circle text-danger"></i> Fail';
+                        showToast('Connection failed', 'error');
+                    }
+
+                    setTimeout(() => {
+                        this.disabled = false;
+                        this.innerHTML = '<i class="bi bi-wifi"></i> Test';
+                    }, 3000);
+                });
+            });
+
+            // Edit config
+            document.querySelectorAll('.edit-config').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const configId = this.dataset.id;
+                    const config = window.configsMap[configId];
+                    if (!config) {
+                        showToast('Configuration not found', 'error');
+                        return;
+                    }
+                    window.isEditMode = true;
+                    document.getElementById('modalTitle').textContent = 'Edit LLM Configuration';
+                    document.getElementById('configId').value = config.id;
+                    document.getElementById('configName').value = config.name;
+                    document.getElementById('baseUrl').value = config.base_url;
+                    document.getElementById('apiKey').value = '';
+                    document.getElementById('modelName').value = config.model_name;
+                    document.getElementById('isDefault').checked = config.is_default;
+                    addConfigModal.show();
+                });
+            });
+
+            // Edit entity prompt
+            document.querySelectorAll('.edit-entity-prompt').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const configId = this.dataset.id;
+                    const config = window.configsMap[configId];
+                    if (!config) {
+                        showToast('Configuration not found', 'error');
+                        return;
+                    }
+                    document.getElementById('entityPromptConfigId').value = config.id;
+                    document.getElementById('entityPromptText').value = config.entity_prompt || defaultEntityPrompt;
+                    entityPromptModal.show();
+                });
+            });
+
+            // Edit relation prompt
+            document.querySelectorAll('.edit-relation-prompt').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const configId = this.dataset.id;
+                    const config = window.configsMap[configId];
+                    if (!config) {
+                        showToast('Configuration not found', 'error');
+                        return;
+                    }
+                    document.getElementById('relationPromptConfigId').value = config.id;
+                    document.getElementById('relationPromptText').value = config.relation_prompt || defaultRelationPrompt;
+                    relationPromptModal.show();
+                });
+            });
+
+            // Edit classify all prompt
+            document.querySelectorAll('.edit-classify-all-prompt').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const configId = this.dataset.id;
+                    const config = window.configsMap[configId];
+                    if (!config) {
+                        showToast('Configuration not found', 'error');
+                        return;
+                    }
+                    document.getElementById('classifyAllPromptConfigId').value = config.id;
+                    document.getElementById('classifyAllPromptText').value = config.classify_all_prompt || defaultClassifyAllPrompt;
+                    classifyAllPromptModal.show();
+                });
+            });
+
+            // Edit KG samples
+            document.querySelectorAll('.edit-kg-samples').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const configId = this.dataset.id;
+                    const config = window.configsMap[configId];
+                    if (!config) {
+                        showToast('Configuration not found', 'error');
+                        return;
+                    }
+                    currentSamplesConfigId = config.id;
+                    try {
+                        currentSamples = config.kg_samples
+                            ? (typeof config.kg_samples === 'string' ? JSON.parse(config.kg_samples) : config.kg_samples)
+                            : { entities: [], relations: [] };
+                    } catch {
+                        currentSamples = { entities: [], relations: [] };
+                    }
+                    if (!currentSamples.entities) currentSamples.entities = [];
+                    if (!currentSamples.relations) currentSamples.relations = [];
+                    renderSamplesEntities();
+                    renderSamplesRelations();
+                    kgSamplesModal.show();
+                });
+            });
+
+            // Set default
+            document.querySelectorAll('.set-default').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const id = this.dataset.id;
+                    try {
+                        await apiCall(`/llm-config/${id}/set-default`, 'POST');
+                        showToast('Default configuration updated', 'success');
+                        loadConfigurations();
+                    } catch (error) {
+                        showToast('Error: ' + error.message, 'error');
+                    }
+                });
+            });
+
+            // Delete config
+            document.querySelectorAll('.delete-config').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const id = this.dataset.id;
+                    const name = this.dataset.name;
+
+                    if (confirm(`Delete configuration "${name}"?`)) {
+                        try {
+                            await apiCall(`/llm-config/${id}`, 'DELETE');
+                            showToast('Configuration deleted', 'success');
+                            loadConfigurations();
+                        } catch (error) {
+                            showToast('Error: ' + error.message, 'error');
+                        }
+                    }
+                });
+            });
+
+        } catch (error) {
+            configsContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Error loading configurations: ${error.message}
+                </div>
+            `;
+        }
+    }
+
+    // Reset form when modal opens for new config
+    document.getElementById('addConfigModal').addEventListener('show.bs.modal', function(e) {
+        if (!window.isEditMode) {
+            document.getElementById('modalTitle').textContent = 'Add LLM Configuration';
+            configForm.reset();
+            document.getElementById('configId').value = '';
+        }
+    });
+
+    // Reset edit mode flag when modal is hidden
+    document.getElementById('addConfigModal').addEventListener('hidden.bs.modal', function(e) {
+        window.isEditMode = false;
+    });
+
+    // Save config (add/edit)
+    saveConfigBtn.addEventListener('click', async function() {
+        if (!configForm.checkValidity()) {
+            configForm.reportValidity();
+            return;
+        }
+
+        const id = document.getElementById('configId').value;
+        const data = {
+            name: document.getElementById('configName').value,
+            base_url: document.getElementById('baseUrl').value,
+            api_key: document.getElementById('apiKey').value || 'lm-studio',
+            model_name: document.getElementById('modelName').value,
+            is_default: document.getElementById('isDefault').checked
+        };
+
+        saveConfigBtn.classList.add('loading');
+        saveConfigBtn.disabled = true;
+
+        try {
+            if (id) {
+                await apiCall(`/llm-config/${id}`, 'PUT', data);
+            } else {
+                await apiCall('/llm-config/', 'POST', data);
+            }
+
+            showToast('Configuration saved!', 'success');
+            addConfigModal.hide();
+            loadConfigurations();
+        } catch (error) {
+            showToast('Error: ' + error.message, 'error');
+        } finally {
+            saveConfigBtn.classList.remove('loading');
+            saveConfigBtn.disabled = false;
+        }
+    });
+});
+</script>
+{% endblock %}

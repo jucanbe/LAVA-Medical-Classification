@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}System Status - Medical Entity Classifier{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-activity me-2"></i>System Status</h1>
+    <button class="btn btn-outline-secondary" id="refreshBtn">
+        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+    </button>
+</div>
+
+<div class="row g-4">
+    <!-- API Status -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-server me-2"></i>API Server
+            </div>
+            <div class="card-body" id="apiStatus">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    <span>Checking...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LLM Status -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-chat-dots me-2"></i>LLM Service
+            </div>
+            <div class="card-body" id="llmStatus">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    <span>Checking...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BERT Status -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-cpu me-2"></i>BERT Service
+            </div>
+            <div class="card-body" id="bertStatus">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    <span>Checking...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KG Status -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-diagram-3 me-2"></i>Knowledge Graph
+            </div>
+            <div class="card-body" id="kgStatus">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    <span>Checking...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card mt-4">
+    <div class="card-header">
+        <i class="bi bi-lightning me-2"></i>Quick Actions
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <a href="/docs" target="_blank" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-file-code me-1"></i>API Documentation
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="/redoc" target="_blank" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-book me-1"></i>ReDoc
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="/openapi.json" target="_blank" class="btn btn-outline-info w-100">
+                    <i class="bi bi-filetype-json me-1"></i>OpenAPI Schema
+                </a>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-outline-danger w-100" id="clearCacheBtn">
+                    <i class="bi bi-trash me-1"></i>Clear Cache
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Info -->
+<div class="card mt-4">
+    <div class="card-header">
+        <i class="bi bi-info-circle me-2"></i>System Information
+    </div>
+    <div class="card-body">
+        <table class="table table-sm">
+            <tbody>
+                <tr>
+                    <td><strong>API Version</strong></td>
+                    <td>1.0.0</td>
+                </tr>
+                <tr>
+                    <td><strong>Framework</strong></td>
+                    <td>FastAPI + Python</td>
+                </tr>
+                <tr>
+                    <td><strong>Entity Types</strong></td>
+                    <td>disease, symptom, finding, organ, imaging_procedure, examination_procedure, therapeutic_procedure, imaging_result, examination_measure, parameter, score, therapy, substance, adverse_event</td>
+                </tr>
+                <tr>
+                    <td><strong>Documentation</strong></td>
+                    <td><a href="/docs">Swagger UI</a> | <a href="/redoc">ReDoc</a></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const refreshBtn = document.getElementById('refreshBtn');
+    
+    loadAllStatus();
+    
+    refreshBtn.addEventListener('click', loadAllStatus);
+
+    async function loadAllStatus() {
+        // API Status
+        try {
+            const health = await apiCall('/health');
+            document.getElementById('apiStatus').innerHTML = `
+                <div class="d-flex align-items-center text-success">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <span>Healthy - ${health.status}</span>
+                </div>
+            `;
+        } catch (e) {
+            document.getElementById('apiStatus').innerHTML = `
+                <div class="d-flex align-items-center text-danger">
+                    <i class="bi bi-x-circle-fill me-2"></i>
+                    <span>Error: ${e.message}</span>
+                </div>
+            `;
+        }
+
+        // LLM Status
+        try {
+            const configs = await apiCall('/llm-config/');
+            const defaultConfig = configs.find(c => c.is_default);
+            
+            if (defaultConfig) {
+                document.getElementById('llmStatus').innerHTML = `
+                    <div class="d-flex align-items-center text-success">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <span>Configured: ${defaultConfig.name}</span>
+                    </div>
+                    <small class="text-muted d-block mt-1">${defaultConfig.base_url}</small>
+                `;
+            } else if (configs.length > 0) {
+                document.getElementById('llmStatus').innerHTML = `
+                    <div class="d-flex align-items-center text-warning">
+                        <i class="bi bi-exclamation-circle-fill me-2"></i>
+                        <span>${configs.length} configs, no default set</span>
+                    </div>
+                `;
+            } else {
+                document.getElementById('llmStatus').innerHTML = `
+                    <div class="d-flex align-items-center text-secondary">
+                        <i class="bi bi-dash-circle-fill me-2"></i>
+                        <span>No LLM configured</span>
+                    </div>
+                `;
+            }
+        } catch (e) {
+            document.getElementById('llmStatus').innerHTML = `
+                <div class="d-flex align-items-center text-danger">
+                    <i class="bi bi-x-circle-fill me-2"></i>
+                    <span>Error: ${e.message}</span>
+                </div>
+            `;
+        }
+
+        // BERT Status
+        try {
+            const bert = await apiCall('/bert/status');
+            
+            if (bert.transformers_available) {
+                document.getElementById('bertStatus').innerHTML = `
+                    <div class="d-flex align-items-center text-success">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <span>Ready (${bert.device})</span>
+                    </div>
+                    <small class="text-muted d-block mt-1">
+                        ${bert.available_models.length} models | 
+                        ${bert.loaded_models.length} loaded
+                    </small>
+                `;
+            } else {
+                document.getElementById('bertStatus').innerHTML = `
+                    <div class="d-flex align-items-center text-warning">
+                        <i class="bi bi-exclamation-circle-fill me-2"></i>
+                        <span>Transformers not installed</span>
+                    </div>
+                    <small class="text-muted d-block mt-1">pip install transformers torch</small>
+                `;
+            }
+        } catch (e) {
+            document.getElementById('bertStatus').innerHTML = `
+                <div class="d-flex align-items-center text-danger">
+                    <i class="bi bi-x-circle-fill me-2"></i>
+                    <span>Error: ${e.message}</span>
+                </div>
+            `;
+        }
+
+        // KG Status
+        try {
+            const kg = await apiCall('/classify/kg/stats');
+            document.getElementById('kgStatus').innerHTML = `
+                <div class="d-flex align-items-center text-success">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <span>Loaded</span>
+                </div>
+                <small class="text-muted d-block mt-1">
+                    ${kg.total_entities} entities | ${kg.total_labels} labels
+                </small>
+            `;
+        } catch (e) {
+            document.getElementById('kgStatus').innerHTML = `
+                <div class="d-flex align-items-center text-danger">
+                    <i class="bi bi-x-circle-fill me-2"></i>
+                    <span>Error: ${e.message}</span>
+                </div>
+            `;
+        }
+    }
+
+    document.getElementById('clearCacheBtn').addEventListener('click', async function() {
+        if (confirm('This will reload the Knowledge Graph. Continue?')) {
+            try {
+                await apiCall('/classify/kg/reload', 'POST');
+                showToast('Cache cleared and KG reloaded', 'success');
+                loadAllStatus();
+            } catch (e) {
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

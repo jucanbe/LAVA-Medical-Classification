@@ -1,0 +1,1376 @@
+{% extends "base.html" %}
+
+{% block title %}Relation Review - Medical Entity Classifier{% endblock %}
+
+{% block extra_css %}
+<style>
+    .score-badge {
+        display: inline-block;
+        width: 60px;
+        text-align: center;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-weight: 600;
+    }
+    .score-excellent { background-color: #d4edda; color: #155724; }
+    .score-good { background-color: #d1ecf1; color: #0c5460; }
+    .score-fair { background-color: #fff3cd; color: #856404; }
+    .score-poor { background-color: #f8d7da; color: #721c24; }
+    
+    .c-card {
+        border-left: 4px solid;
+        transition: all 0.2s ease;
+    }
+    .c-card:hover {
+        transform: translateX(4px);
+    }
+    .c-congruence { border-left-color: #0d6efd; }
+    .c-coverage { border-left-color: #198754; }
+    .c-constraint { border-left-color: #dc3545; }
+    .c-completeness { border-left-color: #ffc107; }
+    .c-consistency { border-left-color: #6f42c1; }
+    
+    .c-card .card-title i {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 8px;
+        font-size: 0.8rem;
+    }
+    .c-congruence .card-title i { background: #e7f1ff; color: #0d6efd; }
+    .c-coverage .card-title i { background: #d1e7dd; color: #198754; }
+    .c-constraint .card-title i { background: #f8d7da; color: #dc3545; }
+    .c-completeness .card-title i { background: #fff3cd; color: #856404; }
+    .c-consistency .card-title i { background: #f3e5f5; color: #6f42c1; }
+    
+    .stat-card {
+        text-align: center;
+        padding: 20px;
+    }
+    .stat-card h2 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+    .stat-card small {
+        color: #6c757d;
+    }
+    
+    .progress-thin {
+        height: 8px;
+        border-radius: 4px;
+    }
+    
+    .review-table th {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        color: #6c757d;
+    }
+    
+    .status-passed { color: #198754; }
+    .status-failed { color: #dc3545; }
+    .status-needs_review { color: #ffc107; }
+    .status-pending { color: #6c757d; }
+    
+    .relation-triplet {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .score-breakdown {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+    .score-breakdown .score-item {
+        text-align: center;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    .score-breakdown .score-item .value {
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+    
+    .score-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: #e9ecef;
+        overflow: hidden;
+    }
+    .score-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+    th.sortable {
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+        padding-right: 18px !important;
+    }
+    th.sortable:hover {
+        background-color: #e9ecef;
+    }
+    th.sortable::after {
+        content: '\2195';
+        position: absolute;
+        right: 4px;
+        opacity: 0.3;
+        font-size: 0.75rem;
+    }
+    th.sortable.sort-asc::after {
+        content: '\2191';
+        opacity: 0.8;
+    }
+    th.sortable.sort-desc::after {
+        content: '\2193';
+        opacity: 0.8;
+    }
+    #bulkProgress {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 1080;
+        min-width: 280px;
+        display: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,.25);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    #bulkProgress .progress { height: 6px; border-radius: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="bulkProgress" class="card">
+    <div class="card-body py-2 px-3">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <small class="fw-semibold" id="progressLabel">Processing...</small>
+            <div>
+                <small class="text-primary fw-bold me-2" id="progressPct">0%</small>
+                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="cancelBulkOperation()" title="Cancel" id="cancelBtn">
+                    <i class="bi bi-x-lg" style="font-size:.7rem"></i>
+                </button>
+            </div>
+        </div>
+        <div class="progress">
+            <div id="progressBar" class="progress-bar bg-primary" style="width:0%"></div>
+        </div>
+        <small class="text-muted" id="progressDetail"></small>
+    </div>
+</div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">
+            <i class="bi bi-clipboard-check text-primary me-2"></i>
+            Relation Review
+        </h1>
+        <p class="text-muted mb-0">Evaluate relations using the 5 Cs Scorecard (Zamzmi et al., 2025)</p>
+    </div>
+    <div>
+        <button class="btn btn-outline-primary me-2" id="refreshBtn">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+        <button class="btn btn-primary" id="reviewPendingBtn">
+            <i class="bi bi-play-circle"></i> Review All Pending
+        </button>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4" id="statsCards">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <h2 id="statTotal" class="text-primary">-</h2>
+            <small>Total Reviews</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <h2 id="statPassed" class="text-success">-</h2>
+            <small>Passed</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <h2 id="statNeedsReview" class="text-warning">-</h2>
+            <small>Needs Review</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <h2 id="statFailed" class="text-danger">-</h2>
+            <small>Failed</small>
+        </div>
+    </div>
+</div>
+
+<!-- Average Scores -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-bar-chart me-2"></i>Average Scores</span>
+    </div>
+    <div class="card-body">
+        <div class="score-breakdown" id="avgScores" style="grid-template-columns: repeat(5, 1fr);">
+            <div class="score-item c-congruence">
+                <div class="value" id="avgCongruence">-</div>
+                <small>Congruence</small>
+            </div>
+            <div class="score-item c-coverage">
+                <div class="value" id="avgCoverage">-</div>
+                <small>Coverage</small>
+            </div>
+            <div class="score-item c-constraint">
+                <div class="value" id="avgConstraint">-</div>
+                <small>Constraint</small>
+            </div>
+            <div class="score-item c-completeness">
+                <div class="value" id="avgCompleteness">-</div>
+                <small>Completeness</small>
+            </div>
+            <div class="score-item c-consistency">
+                <div class="value" id="avgConsistency">-</div>
+                <small>Consistency</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label small text-muted">Status</label>
+                <select class="form-select" id="reviewStatusFilter">
+                    <option value="">All Statuses</option>
+                    <option value="passed">Passed</option>
+                    <option value="needs_review">Needs Review</option>
+                    <option value="failed">Failed</option>
+                    <option value="pending">Pending</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted">Recommendation</label>
+                <select class="form-select" id="recommendationFilter">
+                    <option value="">All</option>
+                    <option value="approve">Approve</option>
+                    <option value="reject">Reject</option>
+                    <option value="modify">Modify</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted">Relation Type</label>
+                <select class="form-select" id="relationTypeFilter">
+                    <option value="">All Types</option>
+                    <option value="has_symptom">has_symptom</option>
+                    <option value="has_finding">has_finding</option>
+                    <option value="suggests">suggests</option>
+                    <option value="located_in">located_in</option>
+                    <option value="indicated_for">indicated_for</option>
+                    <option value="produces_result">produces_result</option>
+                    <option value="treats">treats</option>
+                    <option value="first_line_for">first_line_for</option>
+                    <option value="contraindicated_in">contraindicated_in</option>
+                    <option value="rules_out">rules_out</option>
+                    <option value="assesses">assesses</option>
+                    <option value="affects">affects</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted">Min Score</label>
+                <input type="number" class="form-control" id="filterMinScore" min="0" max="100" placeholder="0">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reviews Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-ul me-2"></i>Relation Reviews</span>
+        <div>
+            <button class="btn btn-sm btn-outline-secondary me-2" id="reEvaluateAllBtn">
+                <i class="bi bi-arrow-repeat"></i> Re-evaluate All
+            </button>
+            <button class="btn btn-sm btn-outline-primary" id="reviewPendingBtn2">
+                <i class="bi bi-play-fill"></i> Review All Pending
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover review-table mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="sortable" data-sort="source_entity">Relation</th>
+                        <th class="sortable" data-sort="congruence_score">Cong.</th>
+                        <th class="sortable" data-sort="coverage_score">Cov.</th>
+                        <th class="sortable" data-sort="constraint_score">Const.</th>
+                        <th class="sortable" data-sort="completeness_score">Comp.</th>
+                        <th class="sortable" data-sort="consistency_score">Cons.</th>
+                        <th class="sortable" data-sort="overall_score">Overall</th>
+                        <th class="sortable" data-sort="review_status">Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="reviewsTable">
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">
+                            <i class="bi bi-hourglass-split me-2"></i>Loading reviews...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted">
+            Showing <span id="showingCount">0</span> of <span id="totalCount">0</span> reviews
+        </small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Legend -->
+<div class="card mt-4">
+    <div class="card-header">
+        <i class="bi bi-info-circle me-2"></i>Scorecard Legend
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-12">
+                <table class="table table-sm table-borderless mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 120px">Column</th>
+                            <th>Metric</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge bg-primary">Cong.</span></td>
+                            <td><strong>Congruence</strong></td>
+                            <td>Semantic validity — whether the relation type is valid between the given entity types (e.g. disease <em>has_symptom</em> symptom).</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-success">Cov.</span></td>
+                            <td><strong>Coverage</strong></td>
+                            <td>Representativeness — whether this relation fills a gap in the Knowledge Graph.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-danger">Const.</span></td>
+                            <td><strong>Constraint</strong></td>
+                            <td>Domain rules — directionality, type validity, confidence threshold, and other clinical constraints.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-warning text-dark">Comp.</span></td>
+                            <td><strong>Completeness</strong></td>
+                            <td>Whether all required attributes (source, target, types, context) are present.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge" style="background-color: #6f42c1;">Cons.</span></td>
+                            <td><strong>Consistency</strong></td>
+                            <td>Cross-validation — whether LLM and BERT classifiers agree on this relation.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-dark">Overall</span></td>
+                            <td><strong>Weighted Score</strong></td>
+                            <td>$Score = (Cong \times W_1) + (Cov \times W_2) + (Const \times W_3) + (Comp \times W_4) + (Cons \times W_5)$ — <a href="/app/config/relation">Configure weights</a></td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-info">Status</span></td>
+                            <td><strong>Review Status</strong></td>
+                            <td>
+                                <span class="text-success">✓ Passed</span> (≥75%) | 
+                                <span class="text-warning">⚠ Review</span> (50-74%) | 
+                                <span class="text-danger">✗ Failed</span> (&lt;50%) — <a href="/app/config/relation">Configure thresholds</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Review Details Modal -->
+<div class="modal fade" id="reviewDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-clipboard-check me-2"></i>Review Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="reviewDetailsContent">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-outline-primary" id="modalModifyBtn">
+                    <i class="bi bi-pencil me-1"></i>Modify
+                </button>
+                <button type="button" class="btn btn-success" id="modalAddToKGBtn">
+                    <i class="bi bi-plus-circle me-1"></i>Add to KG
+                </button>
+                <button type="button" class="btn btn-danger" id="modalDeleteBtn">
+                    <i class="bi bi-trash me-1"></i>Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Relation Modal -->
+<div class="modal fade" id="editRelationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Modify Relation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editReviewId">
+                <input type="hidden" id="editPendingRelationId">
+                <div class="row mb-3">
+                    <div class="col-md-7">
+                        <label class="form-label">Source Entity</label>
+                        <input type="text" class="form-control" id="editSourceEntity">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label">Source Type</label>
+                        <select class="form-select" id="editSourceType">
+                            <option value="disease">Disease</option>
+                            <option value="symptom">Symptom</option>
+                            <option value="finding">Finding</option>
+                            <option value="organ">Organ</option>
+                            <option value="imaging_procedure">Imaging Procedure</option>
+                            <option value="examination_procedure">Examination Procedure</option>
+                            <option value="therapeutic_procedure">Therapeutic Procedure</option>
+                            <option value="imaging_result">Imaging Result</option>
+                            <option value="examination_measure">Examination Measure</option>
+                            <option value="parameter">Parameter</option>
+                            <option value="score">Score</option>
+                            <option value="therapy">Therapy</option>
+                            <option value="substance">Substance</option>
+                            <option value="adverse_event">Adverse Event</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Relation Type</label>
+                    <select class="form-select" id="editRelationType">
+                        <option value="has_symptom">has_symptom</option>
+                        <option value="has_finding">has_finding</option>
+                        <option value="suggests">suggests</option>
+                        <option value="located_in">located_in</option>
+                        <option value="indicated_for">indicated_for</option>
+                        <option value="produces_result">produces_result</option>
+                        <option value="treats">treats</option>
+                        <option value="first_line_for">first_line_for</option>
+                        <option value="contraindicated_in">contraindicated_in</option>
+                        <option value="rules_out">rules_out</option>
+                        <option value="assesses">assesses</option>
+                        <option value="affects">affects</option>
+                    </select>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-7">
+                        <label class="form-label">Target Entity</label>
+                        <input type="text" class="form-control" id="editTargetEntity">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label">Target Type</label>
+                        <select class="form-select" id="editTargetType">
+                            <option value="disease">Disease</option>
+                            <option value="symptom">Symptom</option>
+                            <option value="finding">Finding</option>
+                            <option value="organ">Organ</option>
+                            <option value="imaging_procedure">Imaging Procedure</option>
+                            <option value="examination_procedure">Examination Procedure</option>
+                            <option value="therapeutic_procedure">Therapeutic Procedure</option>
+                            <option value="imaging_result">Imaging Result</option>
+                            <option value="examination_measure">Examination Measure</option>
+                            <option value="parameter">Parameter</option>
+                            <option value="score">Score</option>
+                            <option value="therapy">Therapy</option>
+                            <option value="substance">Substance</option>
+                            <option value="adverse_event">Adverse Event</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEditBtn">
+                    <i class="bi bi-check-lg me-1"></i>Save & Re-evaluate
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add to KG Modal -->
+<div class="modal fade" id="addToKGModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title"><i class="bi bi-diagram-3 me-2 text-success"></i>Add Relation to Knowledge Graph</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="addKGReviewId">
+                <input type="hidden" id="addKGPendingId">
+
+                <p class="text-muted mb-3">Review and optionally modify the entities and relation before adding to the Knowledge Graph.</p>
+
+                <div class="card mb-3">
+                    <div class="card-header py-2"><i class="bi bi-box-arrow-right me-1 text-primary"></i><strong>Source Entity</strong></div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <label class="form-label small text-muted">Entity Text</label>
+                                <input type="text" class="form-control" id="kgSourceEntity">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small text-muted">Entity Type</label>
+                                <select class="form-select" id="kgSourceType">
+                                    <option value="disease">Disease</option>
+                                    <option value="symptom">Symptom</option>
+                                    <option value="finding">Finding</option>
+                                    <option value="organ">Organ</option>
+                                    <option value="imaging_procedure">Imaging Procedure</option>
+                                    <option value="examination_procedure">Examination Procedure</option>
+                                    <option value="therapeutic_procedure">Therapeutic Procedure</option>
+                                    <option value="imaging_result">Imaging Result</option>
+                                    <option value="examination_measure">Examination Measure</option>
+                                    <option value="parameter">Parameter</option>
+                                    <option value="score">Score</option>
+                                    <option value="therapy">Therapy</option>
+                                    <option value="substance">Substance</option>
+                                    <option value="adverse_event">Adverse Event</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-header py-2"><i class="bi bi-arrow-left-right me-1 text-warning"></i><strong>Relation</strong></div>
+                    <div class="card-body">
+                        <select class="form-select" id="kgRelationType">
+                            <option value="has_symptom">has_symptom</option>
+                            <option value="has_finding">has_finding</option>
+                            <option value="suggests">suggests</option>
+                            <option value="located_in">located_in</option>
+                            <option value="indicated_for">indicated_for</option>
+                            <option value="produces_result">produces_result</option>
+                            <option value="treats">treats</option>
+                            <option value="first_line_for">first_line_for</option>
+                            <option value="contraindicated_in">contraindicated_in</option>
+                            <option value="rules_out">rules_out</option>
+                            <option value="assesses">assesses</option>
+                            <option value="affects">affects</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-header py-2"><i class="bi bi-box-arrow-in-right me-1 text-info"></i><strong>Target Entity</strong></div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <label class="form-label small text-muted">Entity Text</label>
+                                <input type="text" class="form-control" id="kgTargetEntity">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small text-muted">Entity Type</label>
+                                <select class="form-select" id="kgTargetType">
+                                    <option value="disease">Disease</option>
+                                    <option value="symptom">Symptom</option>
+                                    <option value="finding">Finding</option>
+                                    <option value="organ">Organ</option>
+                                    <option value="imaging_procedure">Imaging Procedure</option>
+                                    <option value="examination_procedure">Examination Procedure</option>
+                                    <option value="therapeutic_procedure">Therapeutic Procedure</option>
+                                    <option value="imaging_result">Imaging Result</option>
+                                    <option value="examination_measure">Examination Measure</option>
+                                    <option value="parameter">Parameter</option>
+                                    <option value="score">Score</option>
+                                    <option value="therapy">Therapy</option>
+                                    <option value="substance">Substance</option>
+                                    <option value="adverse_event">Adverse Event</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-secondary mb-0">
+                    <small class="text-muted d-block mb-1">Triple Preview</small>
+                    <div class="d-flex align-items-center gap-2 flex-wrap" id="kgPreview">
+                        <strong id="kgPreviewSource">-</strong>
+                        <i class="bi bi-arrow-right text-primary"></i>
+                        <span class="badge bg-primary" id="kgPreviewRelation">-</span>
+                        <i class="bi bi-arrow-right text-primary"></i>
+                        <strong id="kgPreviewTarget">-</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirmAddToKGBtn">
+                    <i class="bi bi-plus-lg me-1"></i>Add to Knowledge Graph
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // State
+    let currentPage = 1;
+    const pageSize = 20;
+    let totalPages = 1;
+    let allReviews = [];
+    let currentReviewId = null;
+    let currentReview = null;
+    let sortColumn = null;
+    let sortDirection = 'asc';
+    
+    // Elements
+    const reviewStatusFilter = document.getElementById('reviewStatusFilter');
+    const recommendationFilter = document.getElementById('recommendationFilter');
+    const relationTypeFilter = document.getElementById('relationTypeFilter');
+    const filterMinScore = document.getElementById('filterMinScore');
+    const reviewsTable = document.getElementById('reviewsTable');
+    const pagination = document.getElementById('pagination');
+    
+    // Modals
+    const reviewDetailsModal = new bootstrap.Modal(document.getElementById('reviewDetailsModal'));
+    const editRelationModal = new bootstrap.Modal(document.getElementById('editRelationModal'));
+    const addToKGModal = new bootstrap.Modal(document.getElementById('addToKGModal'));
+
+    // Sortable columns
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const col = th.dataset.sort;
+            if (sortColumn === col) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = col;
+                sortDirection = 'asc';
+            }
+            document.querySelectorAll('th.sortable').forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+            th.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+            loadReviews();
+        });
+    });
+
+    function sortArray(arr) {
+        if (!sortColumn) return arr;
+        return [...arr].sort((a, b) => {
+            let va = a[sortColumn], vb = b[sortColumn];
+            if (va == null) va = '';
+            if (vb == null) vb = '';
+            if (typeof va === 'number' && typeof vb === 'number') {
+                return sortDirection === 'asc' ? va - vb : vb - va;
+            }
+            va = String(va).toLowerCase();
+            vb = String(vb).toLowerCase();
+            if (va < vb) return sortDirection === 'asc' ? -1 : 1;
+            if (va > vb) return sortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    // Load initial data
+    loadStats();
+    loadReviews();
+    
+    // Event listeners
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+        loadStats();
+        loadReviews();
+    });
+    
+    [reviewStatusFilter, recommendationFilter, relationTypeFilter].forEach(el => {
+        el.addEventListener('change', () => {
+            currentPage = 1;
+            loadReviews();
+        });
+    });
+    
+    filterMinScore.addEventListener('change', () => {
+        currentPage = 1;
+        loadReviews();
+    });
+    
+    // Review pending buttons - direct action, no modal
+    document.getElementById('reviewPendingBtn').addEventListener('click', reviewAllPending);
+    document.getElementById('reviewPendingBtn2').addEventListener('click', reviewAllPending);
+    document.getElementById('reEvaluateAllBtn').addEventListener('click', reEvaluateAll);
+    
+    // Modal delete button
+    document.getElementById('modalDeleteBtn').addEventListener('click', async () => {
+        if (!currentReviewId) return;
+        if (!confirm('Delete this review?')) return;
+        
+        try {
+            const response = await apiCall(`/relation-reviews/${currentReviewId}`, 'DELETE');
+            if (response.success) {
+                showToast('Review deleted', 'success');
+                reviewDetailsModal.hide();
+                loadStats();
+                loadReviews();
+            }
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    });
+    
+    // Modal modify button
+    document.getElementById('modalModifyBtn').addEventListener('click', () => {
+        if (!currentReview) return;
+        reviewDetailsModal.hide();
+        openEditModal(currentReview);
+    });
+    
+    // Modal add to KG button
+    document.getElementById('modalAddToKGBtn').addEventListener('click', () => {
+        if (!currentReview) return;
+        reviewDetailsModal.hide();
+        openAddToKGModal(currentReview);
+    });
+    
+    // Save edit button
+    document.getElementById('saveEditBtn').addEventListener('click', async () => {
+        const reviewId = document.getElementById('editReviewId').value;
+        const pendingId = document.getElementById('editPendingRelationId').value;
+        const btn = document.getElementById('saveEditBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+        
+        try {
+            // Update the pending relation
+            if (pendingId) {
+                await apiCall(`/pending-relations/${pendingId}`, 'PUT', {
+                    source_entity: document.getElementById('editSourceEntity').value,
+                    source_type: document.getElementById('editSourceType').value,
+                    relation_type: document.getElementById('editRelationType').value,
+                    target_entity: document.getElementById('editTargetEntity').value,
+                    target_type: document.getElementById('editTargetType').value
+                });
+            }
+            
+            // Re-create the review with updated data
+            await apiCall(`/relation-reviews/${reviewId}`, 'DELETE');
+            await apiCall('/relation-reviews/', 'POST', {
+                pending_relation_id: parseInt(pendingId) || null,
+                source_entity: document.getElementById('editSourceEntity').value,
+                source_type: document.getElementById('editSourceType').value,
+                relation_type: document.getElementById('editRelationType').value,
+                target_entity: document.getElementById('editTargetEntity').value,
+                target_type: document.getElementById('editTargetType').value
+            });
+            
+            showToast('Relation updated and re-evaluated', 'success');
+            editRelationModal.hide();
+            loadStats();
+            loadReviews();
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save & Re-evaluate';
+        }
+    });
+    
+    // Add to KG preview listeners
+    ['kgSourceEntity', 'kgRelationType', 'kgTargetEntity'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updateKGPreview);
+        document.getElementById(id).addEventListener('change', updateKGPreview);
+    });
+    
+    // Confirm add to KG
+    document.getElementById('confirmAddToKGBtn').addEventListener('click', async () => {
+        const pendingId = document.getElementById('addKGPendingId').value;
+        const btn = document.getElementById('confirmAddToKGBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Adding...';
+        
+        try {
+            const params = new URLSearchParams({
+                source_entity: document.getElementById('kgSourceEntity').value,
+                source_type: document.getElementById('kgSourceType').value,
+                relation_type: document.getElementById('kgRelationType').value,
+                target_entity: document.getElementById('kgTargetEntity').value,
+                target_type: document.getElementById('kgTargetType').value,
+            });
+            
+            const response = await apiCall(`/pending-relations/${pendingId}/add-to-kg?${params}`, 'POST');
+            if (response && response.success) {
+                showToast(response.message || 'Relation added to KG', 'success');
+                addToKGModal.hide();
+                loadStats();
+                loadReviews();
+            } else {
+                showToast(response?.error || 'Failed to add to KG', 'error');
+            }
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-plus-lg me-1"></i>Add to Knowledge Graph';
+        }
+    });
+    
+    // Functions
+    function updateKGPreview() {
+        document.getElementById('kgPreviewSource').textContent =
+            document.getElementById('kgSourceEntity').value || '-';
+        document.getElementById('kgPreviewRelation').textContent =
+            document.getElementById('kgRelationType').value || '-';
+        document.getElementById('kgPreviewTarget').textContent =
+            document.getElementById('kgTargetEntity').value || '-';
+    }
+    
+    async function loadStats() {
+        try {
+            const data = await apiCall('/relation-reviews/stats');
+            const stats = data.stats || data;
+            document.getElementById('statTotal').textContent = stats.total || 0;
+            document.getElementById('statPassed').textContent = stats.passed || 0;
+            document.getElementById('statNeedsReview').textContent = stats.needs_review || 0;
+            document.getElementById('statFailed').textContent = stats.failed || 0;
+            
+            // Update average 5 Cs scores
+            document.getElementById('avgCongruence').textContent =
+                stats.avg_congruence != null ? Math.round(stats.avg_congruence * 100) + '%' : '-';
+            document.getElementById('avgCoverage').textContent =
+                stats.avg_coverage != null ? Math.round(stats.avg_coverage * 100) + '%' : '-';
+            document.getElementById('avgConstraint').textContent =
+                stats.avg_constraint != null ? Math.round(stats.avg_constraint * 100) + '%' : '-';
+            document.getElementById('avgCompleteness').textContent =
+                stats.avg_completeness != null ? Math.round(stats.avg_completeness * 100) + '%' : '-';
+            document.getElementById('avgConsistency').textContent =
+                stats.avg_consistency != null ? Math.round(stats.avg_consistency * 100) + '%' : '-';
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+    
+    async function loadReviews() {
+        try {
+            const params = new URLSearchParams({
+                page: currentPage,
+                page_size: pageSize
+            });
+            
+            const status = reviewStatusFilter.value;
+            const relType = relationTypeFilter.value;
+            const minScore = filterMinScore.value;
+            
+            if (status) params.append('review_status', status);
+            if (relType) params.append('relation_type', relType);
+            if (minScore) params.append('min_score', minScore / 100);
+            if (sortColumn) {
+                params.append('sort_by', sortColumn);
+                params.append('sort_dir', sortDirection);
+            }
+            
+            const response = await apiCall(`/relation-reviews/?${params}`);
+            
+            if (response.success) {
+                allReviews = response.reviews;
+                totalPages = Math.ceil(response.total / pageSize);
+                document.getElementById('showingCount').textContent = response.reviews.length;
+                document.getElementById('totalCount').textContent = response.total;
+                renderTable(response.reviews);
+                renderPagination();
+            }
+        } catch (error) {
+            reviewsTable.innerHTML = `
+                <tr><td colspan="7" class="text-center py-5 text-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Error: ${error.message}
+                </td></tr>`;
+        }
+    }
+    
+    function getRelationBadgeClass(relType) {
+        const classes = {
+            'has_symptom': 'bg-primary',
+            'has_finding': 'bg-primary',
+            'suggests': 'bg-info',
+            'located_in': 'bg-secondary',
+            'indicated_for': 'bg-success',
+            'produces_result': 'bg-success',
+            'treats': 'bg-warning text-dark',
+            'first_line_for': 'bg-warning text-dark',
+            'contraindicated_in': 'bg-danger',
+            'rules_out': 'bg-danger',
+            'assesses': 'bg-dark',
+            'affects': 'bg-dark'
+        };
+        return classes[relType] || 'bg-secondary';
+    }
+    
+    function getScoreBadge(score) {
+        if (score === null || score === undefined) return '-';
+        const pct = Math.round(score * 100);
+        let cls = 'score-poor';
+        if (pct >= 80) cls = 'score-excellent';
+        else if (pct >= 60) cls = 'score-good';
+        else if (pct >= 40) cls = 'score-fair';
+        return `<span class="score-badge ${cls}">${pct}%</span>`;
+    }
+    
+    function formatStatus(status) {
+        const labels = {
+            'passed': '\u2713 Passed',
+            'failed': '\u2717 Failed',
+            'needs_review': '\u26a0 Review',
+            'pending': '\u25cb Pending'
+        };
+        return labels[status] || status;
+    }
+    
+    function renderTable(reviews) {
+        if (reviews.length === 0) {
+            reviewsTable.innerHTML = `
+                <tr><td colspan="9" class="text-center py-4 text-muted">
+                    <i class="bi bi-inbox me-2"></i>No reviews found
+                </td></tr>`;
+            return;
+        }
+        
+        reviewsTable.innerHTML = reviews.map(rev => {
+            const badgeClass = getRelationBadgeClass(rev.relation_type);
+            
+            return `
+                <tr>
+                    <td>
+                        <div class="relation-triplet">
+                            <strong>${rev.source_entity}</strong>
+                            <i class="bi bi-arrow-right text-muted"></i>
+                            <span class="badge ${badgeClass}" style="font-size: 0.7rem;">${rev.relation_type}</span>
+                            <i class="bi bi-arrow-right text-muted"></i>
+                            <strong>${rev.target_entity}</strong>
+                        </div>
+                    </td>
+                    <td>${getScoreBadge(rev.congruence_score)}</td>
+                    <td>${getScoreBadge(rev.coverage_score)}</td>
+                    <td>${getScoreBadge(rev.constraint_score)}</td>
+                    <td>${getScoreBadge(rev.completeness_score)}</td>
+                    <td>${getScoreBadge(rev.consistency_score)}</td>
+                    <td><strong>${getScoreBadge(rev.overall_score)}</strong></td>
+                    <td><span class="status-${rev.review_status}">${formatStatus(rev.review_status)}</span></td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="viewReview(${rev.id})" title="View Details">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="editReview(${rev.id})" title="Modify">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" onclick="addReviewToKG(${rev.id})" title="Add to KG">
+                                <i class="bi bi-plus-circle"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning" onclick="reEvaluateSingle(${rev.id})" title="Re-evaluate">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteReview(${rev.id})" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    function renderPagination() {
+        if (totalPages <= 1) {
+            pagination.innerHTML = '';
+            return;
+        }
+        
+        let html = '';
+        html += `<li class="page-item ${currentPage <= 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage - 1})">&laquo;</a>
+        </li>`;
+        
+        for (let i = 1; i <= totalPages; i++) {
+            if (i <= 3 || i > totalPages - 3 || Math.abs(i - currentPage) <= 1) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="goToPage(${i})">${i}</a>
+                </li>`;
+            } else if (i === 4 || i === totalPages - 3) {
+                html += `<li class="page-item disabled"><a class="page-link">...</a></li>`;
+            }
+        }
+        
+        html += `<li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage + 1})">&raquo;</a>
+        </li>`;
+        
+        pagination.innerHTML = html;
+    }
+    
+    function openEditModal(rev) {
+        document.getElementById('editReviewId').value = rev.id;
+        document.getElementById('editPendingRelationId').value = rev.pending_relation_id || '';
+        document.getElementById('editSourceEntity').value = rev.source_entity;
+        document.getElementById('editSourceType').value = rev.source_type;
+        document.getElementById('editRelationType').value = rev.relation_type;
+        document.getElementById('editTargetEntity').value = rev.target_entity;
+        document.getElementById('editTargetType').value = rev.target_type;
+        editRelationModal.show();
+    }
+    
+    function openAddToKGModal(rev) {
+        document.getElementById('addKGReviewId').value = rev.id;
+        document.getElementById('addKGPendingId').value = rev.pending_relation_id || '';
+        document.getElementById('kgSourceEntity').value = rev.source_entity;
+        document.getElementById('kgSourceType').value = rev.source_type;
+        document.getElementById('kgRelationType').value = rev.relation_type;
+        document.getElementById('kgTargetEntity').value = rev.target_entity;
+        document.getElementById('kgTargetType').value = rev.target_type;
+        updateKGPreview();
+        addToKGModal.show();
+    }
+    
+    // Global functions
+    window.goToPage = function(page) {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        loadReviews();
+    };
+    
+    window.viewReview = function(id) {
+        const rev = allReviews.find(r => r.id === id);
+        if (!rev) return;
+        
+        currentReviewId = id;
+        currentReview = rev;
+        const badgeClass = getRelationBadgeClass(rev.relation_type);
+        const date = rev.created_at ? new Date(rev.created_at).toLocaleString() : '-';
+        
+        document.getElementById('reviewDetailsContent').innerHTML = `
+            <div class="row">
+                <div class="col-md-8">
+                    <!-- Relation -->
+                    <div class="mb-4 p-3 bg-light rounded">
+                        <div class="d-flex align-items-center justify-content-center gap-3 flex-wrap">
+                            <div class="text-center">
+                                <h5 class="mb-0">${rev.source_entity}</h5>
+                                <small class="text-muted">${rev.source_type}</small>
+                            </div>
+                            <i class="bi bi-arrow-right text-primary" style="font-size: 1.5rem;"></i>
+                            <span class="badge ${badgeClass} fs-6">${rev.relation_type}</span>
+                            <i class="bi bi-arrow-right text-primary" style="font-size: 1.5rem;"></i>
+                            <div class="text-center">
+                                <h5 class="mb-0">${rev.target_entity}</h5>
+                                <small class="text-muted">${rev.target_type}</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 5 Cs Score Cards -->
+                    <div class="row g-3 mb-4">
+                        <div class="col">
+                            <div class="card c-card c-congruence">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h6 class="card-title"><i class="bi bi-link-45deg"></i>Congruence</h6>
+                                        ${getScoreBadge(rev.congruence_score)}
+                                    </div>
+                                    <small class="text-muted">Semantic validity of relation type</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="card c-card c-coverage">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h6 class="card-title"><i class="bi bi-layers"></i>Coverage</h6>
+                                        ${getScoreBadge(rev.coverage_score)}
+                                    </div>
+                                    <small class="text-muted">KG gap-filling assessment</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="card c-card c-constraint">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h6 class="card-title"><i class="bi bi-shield-check"></i>Constraint</h6>
+                                        ${getScoreBadge(rev.constraint_score)}
+                                    </div>
+                                    <small class="text-muted">Domain rules &amp; directionality</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="card c-card c-completeness">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h6 class="card-title"><i class="bi bi-check2-all"></i>Completeness</h6>
+                                        ${getScoreBadge(rev.completeness_score)}
+                                    </div>
+                                    <small class="text-muted">Required attributes present</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="card c-card c-consistency">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h6 class="card-title"><i class="bi bi-arrow-repeat"></i>Consistency</h6>
+                                        ${getScoreBadge(rev.consistency_score)}
+                                    </div>
+                                    <small class="text-muted">Cross-validation agreement</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted mb-2">Overall Score</h6>
+                            <div class="score-badge ${getScoreClass(Math.round((rev.overall_score || 0) * 100))}" style="font-size: 2rem; width: auto; padding: 12px 24px;">
+                                ${Math.round((rev.overall_score || 0) * 100)}%
+                            </div>
+                            <p class="mt-3 mb-1">
+                                <strong class="status-${rev.review_status}">${formatStatus(rev.review_status)}</strong>
+                            </p>
+                            <small class="text-muted">Recommendation: ${rev.recommendation || '-'}</small>
+                        </div>
+                    </div>
+                    ${rev.review_notes ? `
+                        <div class="card mt-3">
+                            <div class="card-body">
+                                <h6>Notes</h6>
+                                <p class="mb-0 small">${rev.review_notes}</p>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+            <div class="text-muted mt-3"><small>Created: ${date}</small></div>
+        `;
+        
+        reviewDetailsModal.show();
+    };
+    
+    window.editReview = function(id) {
+        const rev = allReviews.find(r => r.id === id);
+        if (!rev) return;
+        openEditModal(rev);
+    };
+    
+    window.addReviewToKG = function(id) {
+        const rev = allReviews.find(r => r.id === id);
+        if (!rev) return;
+        openAddToKGModal(rev);
+    };
+    
+    window.deleteReview = async function(id) {
+        if (!confirm('Delete this review?')) return;
+        
+        try {
+            const response = await apiCall(`/relation-reviews/${id}`, 'DELETE');
+            if (response.success) {
+                showToast('Review deleted', 'success');
+                loadStats();
+                loadReviews();
+            }
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    };
+    
+    function getScoreClass(pct) {
+        if (pct >= 80) return 'score-excellent';
+        if (pct >= 60) return 'score-good';
+        if (pct >= 40) return 'score-fair';
+        return 'score-poor';
+    }
+    
+    let _bulkCancelled = false;
+    function cancelBulkOperation() { _bulkCancelled = true; }
+    function showProgress(label) {
+        _bulkCancelled = false;
+        document.getElementById('progressLabel').textContent = label;
+        document.getElementById('progressPct').textContent = '0%';
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('progressDetail').textContent = '';
+        document.getElementById('bulkProgress').style.display = 'block';
+    }
+    function updateProgress(current, total, detail) {
+        const pct = Math.round((current / total) * 100);
+        document.getElementById('progressPct').textContent = pct + '%';
+        document.getElementById('progressBar').style.width = pct + '%';
+        if (detail) document.getElementById('progressDetail').textContent = detail;
+    }
+    function hideProgress() {
+        document.getElementById('bulkProgress').style.display = 'none';
+    }
+
+    // Review all pending relations directly
+    async function reviewAllPending() {
+        if (!confirm('This will review all pending relations. Continue?')) return;
+        
+        showProgress('Reviewing pending relations...');
+        
+        try {
+            let allPending = [];
+            let p = 1;
+            while (true) {
+                const resp = await apiCall(`/pending-relations/?status=pending&has_review=not_reviewed&page=${p}&page_size=200`);
+                if (!resp.relations || resp.relations.length === 0) break;
+                allPending = allPending.concat(resp.relations);
+                if (allPending.length >= resp.total) break;
+                p++;
+            }
+            
+            if (allPending.length === 0) {
+                hideProgress();
+                showToast('No pending relations to review', 'warning');
+                return;
+            }
+            
+            let reviewed = 0, skipped = 0, errors = 0;
+            const total = allPending.length;
+            
+            for (let i = 0; i < total; i++) {
+                if (_bulkCancelled) break;
+                const rel = allPending[i];
+                updateProgress(i + 1, total, `${rel.source_entity} → ${rel.target_entity} (${i+1}/${total})`);
+                try {
+                    const resp = await fetch('/relation-reviews/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            source_entity: rel.source_entity,
+                            source_type: rel.source_type,
+                            relation_type: rel.relation_type,
+                            target_entity: rel.target_entity,
+                            target_type: rel.target_type,
+                            pending_relation_id: rel.id
+                        })
+                    });
+                    if (resp.ok) {
+                        if (resp.headers.get('X-Already-Existed') === 'true') skipped++;
+                        else reviewed++;
+                    } else {
+                        errors++;
+                    }
+                } catch (e) {
+                    errors++;
+                }
+            }
+            
+            hideProgress();
+            let msg = _bulkCancelled ? 'Cancelled. ' : '';
+            msg += `Reviewed: ${reviewed}`;
+            if (skipped > 0) msg += `, Skipped: ${skipped}`;
+            if (errors > 0) msg += `, Errors: ${errors}`;
+            showToast(msg, reviewed > 0 ? 'success' : 'info');
+            loadStats();
+            loadReviews();
+        } catch (error) {
+            hideProgress();
+            console.error('Error in bulk review:', error);
+            showToast('Error in bulk review', 'error');
+        }
+    }
+    
+    // Re-evaluate all existing reviews
+    async function reEvaluateAll() {
+        if (!confirm('This will re-evaluate ALL existing reviews. Continue?')) return;
+        
+        showProgress('Re-evaluating all reviews...');
+        
+        try {
+            let allIds = [];
+            let p = 1;
+            while (true) {
+                const resp = await apiCall(`/relation-reviews/?page=${p}&page_size=200`);
+                if (!resp.reviews || resp.reviews.length === 0) break;
+                allIds = allIds.concat(resp.reviews.map(r => r.id));
+                if (allIds.length >= resp.total) break;
+                p++;
+            }
+            
+            if (allIds.length === 0) {
+                hideProgress();
+                showToast('No reviews to re-evaluate', 'warning');
+                return;
+            }
+            
+            let updated = 0, errors = 0;
+            const total = allIds.length;
+            
+            for (let i = 0; i < total; i++) {
+                if (_bulkCancelled) break;
+                updateProgress(i + 1, total, `Review ${allIds[i]} (${i+1}/${total})`);
+                try {
+                    const response = await apiCall(`/relation-reviews/${allIds[i]}/re-evaluate`, 'POST');
+                    if (response.id) updated++;
+                    else errors++;
+                } catch (e) {
+                    errors++;
+                }
+            }
+            
+            hideProgress();
+            let msg = _bulkCancelled ? 'Cancelled. ' : '';
+            msg += `Re-evaluated: ${updated}`;
+            if (errors > 0) msg += `, Errors: ${errors}`;
+            showToast(msg, updated > 0 ? 'success' : 'info');
+            loadStats();
+            loadReviews();
+        } catch (error) {
+            hideProgress();
+            console.error('Error in re-evaluation:', error);
+            showToast('Error in re-evaluation', 'error');
+        }
+    }
+    
+    // Re-evaluate a single review
+    window.reEvaluateSingle = async function(reviewId) {
+        if (!confirm('Re-evaluate this relation with the current configuration?')) return;
+        
+        showToast('Re-evaluating...', 'info');
+        
+        try {
+            const response = await apiCall(`/relation-reviews/${reviewId}/re-evaluate`, 'POST');
+            
+            if (response.success) {
+                showToast(`Re-evaluated: ${Math.round(response.overall_score * 100)}% (${response.new_status})`, 'success');
+                loadStats();
+                loadReviews();
+            } else {
+                showToast('Re-evaluation failed', 'error');
+            }
+        } catch (error) {
+            console.error('Error re-evaluating:', error);
+            showToast('Error re-evaluating relation', 'error');
+        }
+    };
+});
+</script>
+{% endblock %}

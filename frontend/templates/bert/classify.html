@@ -1,0 +1,911 @@
+{% extends "base.html" %}
+{% block title %}BERT Classify - Medical Entity Classifier{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-cpu me-2"></i>BERT Text Classification</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <!-- Input Mode Tabs -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-input" type="button" role="tab">
+                            <i class="bi bi-pencil-square me-1"></i>Text Input
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="file-tab" data-bs-toggle="tab" data-bs-target="#file-input" type="button" role="tab">
+                            <i class="bi bi-files me-1"></i>Documents Upload
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content">
+                    <!-- Text Input Tab -->
+                    <div class="tab-pane fade show active" id="text-input" role="tabpanel">
+                        <form id="classifyForm">
+                            <div class="mb-3">
+                                <label for="modelSelect" class="form-label">BERT Model</label>
+                                <select class="form-select" id="modelSelect">
+                                    <option value="">Loading models...</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="medicalText" class="form-label">Medical Text</label>
+                                <textarea class="form-control" id="medicalText" rows="8" 
+                                    placeholder="Enter medical text to analyze with BERT..."></textarea>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-success" id="classifyBtn">
+                                    <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                                    <i class="bi bi-cpu me-1"></i>Classify with BERT
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Documents Upload Tab -->
+                    <div class="tab-pane fade" id="file-input" role="tabpanel">
+                        <form id="documentForm">
+                            <div class="mb-3">
+                                <label for="docModelSelect" class="form-label">BERT Model</label>
+                                <select class="form-select" id="docModelSelect">
+                                    <option value="">Loading models...</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="documentFiles" class="form-label">Upload Documents</label>
+                                <div class="border border-2 border-dashed rounded p-4 text-center" id="dropZone">
+                                    <input type="file" class="form-control d-none" id="documentFiles" 
+                                           accept=".pdf,.docx,.doc,.txt" multiple>
+                                    <i class="bi bi-cloud-arrow-up" style="font-size: 3rem; color: #6c757d;"></i>
+                                    <p class="mt-2 mb-1">Drag and drop files here, or click to select</p>
+                                    <small class="text-muted">Supported: PDF, DOCX, DOC, TXT | Multiple files allowed</small>
+                                </div>
+                                <div id="fileList" class="mt-2"></div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="chunkSize" class="form-label">Chunk Size (characters)</label>
+                                    <input type="number" class="form-control" id="chunkSize" value="2000" min="500" max="4000">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="minConfidence" class="form-label">Min Confidence</label>
+                                    <input type="number" class="form-control" id="minConfidence" value="0.5" min="0" max="1" step="0.1">
+                                </div>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-success" id="uploadBtn" disabled>
+                                    <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                                    <i class="bi bi-cpu me-1"></i>Process Documents
+                                </button>
+                            </div>
+                        </form>
+                        <div id="progressContainer" class="mt-3 d-none">
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                     role="progressbar" id="uploadProgress" style="width: 0%"></div>
+                            </div>
+                            <small class="text-muted" id="progressText">Processing...</small>
+                        </div>
+                    </div>
+                </div>
+                <!-- Compare with KG Backend selector -->
+                <div class="mt-3 d-flex align-items-center gap-2">
+                    <label for="kgBackend" class="form-label mb-0 text-nowrap">
+                        <i class="bi bi-database me-1"></i>Compare with
+                    </label>
+                    <select class="form-select form-select-sm" id="kgBackend" style="max-width: 250px;">
+                        <option value="all" selected>All</option>
+                        <option value="external">External KG</option>
+                        <option value="internal">Internal KG (TTL Files)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-check me-2"></i>Classification Results</span>
+                <span class="badge bg-secondary" id="inferenceTime"></span>
+            </div>
+            <div class="card-body" id="resultsContainer" style="max-height: 600px; overflow-y: auto;">
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-cpu" style="font-size: 3rem;"></i>
+                    <p class="mt-3">Select a model and enter text or upload documents</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- No Models Alert -->
+<div class="alert alert-warning mt-4" id="noModelsAlert" style="display: none;">
+    <h5><i class="bi bi-exclamation-triangle me-2"></i>No BERT Models Available</h5>
+    <p>You need to train a BERT model first before you can use it for classification.</p>
+    <a href="/app/bert/train" class="btn btn-warning">
+        <i class="bi bi-mortarboard me-1"></i>Train a Model
+    </a>
+</div>
+
+<!-- Add Entity Modal -->
+<div class="modal fade" id="addEntityModal" tabindex="-1" aria-labelledby="addEntityModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addEntityModalLabel">
+                    <i class="bi bi-plus-circle me-2"></i>Add Entity to Knowledge Graph
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Entity Info -->
+                <div class="mb-4 p-3 bg-light rounded">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="text-muted small">Entity Text</label>
+                            <h5 id="modalEntityText" class="mb-0"></h5>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="text-muted small">Entity Type</label>
+                            <div id="modalEntityType"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="text-muted small">KG Status</label>
+                            <div id="modalEntityStatus"></div>
+                            <label class="text-muted small mt-2">Similarity Score</label>
+                            <div id="modalEntitySimilarity"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Similar entities section -->
+                <div id="similarEntitiesSection" class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Similar Entities in Knowledge Graph</h6>
+                        <span class="spinner-border spinner-border-sm text-primary" id="loadingSimilar"></span>
+                    </div>
+                    <div class="alert alert-info py-2 mb-3">
+                        <small>
+                            <i class="bi bi-info-circle me-1"></i>
+                            You can link this entity to an existing similar entity, or add it as a completely new entity.
+                        </small>
+                    </div>
+                    <div id="similarEntitiesList" class="mb-3"></div>
+                    
+                    <div id="linkOptions" class="d-none border rounded p-3 bg-light">
+                        <h6 class="mb-3">Link Type</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="linkType" id="linkSameAs" value="sameAs">
+                                    <label class="form-check-label" for="linkSameAs">
+                                        <strong>Same As</strong>
+                                        <small class="d-block text-muted">Entities are identical</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="linkType" id="linkExactMatch" value="exactMatch">
+                                    <label class="form-check-label" for="linkExactMatch">
+                                        <strong>Exact Match</strong>
+                                        <small class="d-block text-muted">Exact semantic match (SKOS)</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="linkType" id="linkCloseMatch" value="closeMatch" checked>
+                                    <label class="form-check-label" for="linkCloseMatch">
+                                        <strong>Close Match</strong>
+                                        <small class="d-block text-muted">Close semantic match (SKOS)</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="linkType" id="linkRelatedTo" value="relatedTo">
+                                    <label class="form-check-label" for="linkRelatedTo">
+                                        <strong>Related To</strong>
+                                        <small class="d-block text-muted">General relationship</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="linkType" id="linkNarrowerThan" value="narrowerThan">
+                                    <label class="form-check-label" for="linkNarrowerThan">
+                                        <strong>Narrower Than</strong>
+                                        <small class="d-block text-muted">New entity is more specific</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="linkType" id="linkBroaderThan" value="broaderThan">
+                                    <label class="form-check-label" for="linkBroaderThan">
+                                        <strong>Broader Than</strong>
+                                        <small class="d-block text-muted">New entity is more general</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- No similar entities -->
+                <div id="noSimilarSection" class="d-none">
+                    <div class="alert alert-secondary">
+                        <i class="bi bi-plus-lg me-2"></i>
+                        This entity will be added as a new entry in the Knowledge Graph.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmAddEntity">
+                    <i class="bi bi-plus-lg me-1"></i>Add to Knowledge Graph
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Entity status styles */
+    .entity-status-exact_match {
+        background-color: #d1e7dd !important;
+        border-color: #198754 !important;
+    }
+    .entity-status-similar_match {
+        background-color: #fff3cd !important;
+        border-color: #ffc107 !important;
+    }
+    .entity-status-low_match {
+        background-color: #ffe8cc !important;
+        border-color: #fd7e14 !important;
+    }
+    .entity-status-not_found {
+        background-color: #f8d7da !important;
+        border-color: #dc3545 !important;
+    }
+    
+    .clickable-entity {
+        cursor: pointer;
+        transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .clickable-entity:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .status-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        padding: 0.5rem;
+        background: #f8f9fa;
+        border-radius: 0.25rem;
+        font-size: 0.85rem;
+    }
+    .status-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .status-dot.exact_match { background: #198754; }
+    .status-dot.similar_match { background: #ffc107; }
+    .status-dot.low_match { background: #fd7e14; }
+    .status-dot.not_found { background: #dc3545; }
+    
+    .entity-card {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+    const textForm = document.getElementById('classifyForm');
+    const documentForm = document.getElementById('documentForm');
+    const modelSelect = document.getElementById('modelSelect');
+    const docModelSelect = document.getElementById('docModelSelect');
+    const textArea = document.getElementById('medicalText');
+    const resultsContainer = document.getElementById('resultsContainer');
+    const classifyBtn = document.getElementById('classifyBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const inferenceTimeEl = document.getElementById('inferenceTime');
+    const noModelsAlert = document.getElementById('noModelsAlert');
+    const fileInput = document.getElementById('documentFiles');
+    const dropZone = document.getElementById('dropZone');
+    const fileList = document.getElementById('fileList');
+    const progressContainer = document.getElementById('progressContainer');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressText = document.getElementById('progressText');
+    
+    // Modal elements
+    const addEntityModal = new bootstrap.Modal(document.getElementById('addEntityModal'));
+    const confirmAddBtn = document.getElementById('confirmAddEntity');
+    
+    let selectedFiles = [];
+    let currentEntityData = null;
+    let selectedLinkUri = null;
+
+    // Load available models (entity models only)
+    try {
+        const models = await apiCall('/bert/models?model_type=entity');
+        
+        if (models.length === 0) {
+            const disabledOption = '<option value="">No models available</option>';
+            modelSelect.innerHTML = disabledOption;
+            docModelSelect.innerHTML = disabledOption;
+            modelSelect.disabled = true;
+            docModelSelect.disabled = true;
+            classifyBtn.disabled = true;
+            noModelsAlert.style.display = 'block';
+        } else {
+            const options = models.map(m => 
+                `<option value="${m.name}">${m.name}</option>`
+            ).join('');
+            modelSelect.innerHTML = options;
+            docModelSelect.innerHTML = options;
+            noModelsAlert.style.display = 'none';
+        }
+    } catch (error) {
+        const errorOption = '<option value="">Error loading models</option>';
+        modelSelect.innerHTML = errorOption;
+        docModelSelect.innerHTML = errorOption;
+        modelSelect.disabled = true;
+        docModelSelect.disabled = true;
+    }
+
+    // File drag and drop
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-success', 'bg-light');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-success', 'bg-light');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-success', 'bg-light');
+        handleFiles(e.dataTransfer.files);
+    });
+    
+    fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+    
+    function handleFiles(files) {
+        const validTypes = ['.pdf', '.docx', '.doc', '.txt'];
+        
+        for (const file of files) {
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            if (!validTypes.includes(ext)) {
+                showToast(`Invalid file type: ${file.name}`, 'warning');
+                continue;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                showToast(`File too large: ${file.name} (max 10MB)`, 'warning');
+                continue;
+            }
+            // Avoid duplicates
+            if (!selectedFiles.find(f => f.name === file.name && f.size === file.size)) {
+                selectedFiles.push(file);
+            }
+        }
+        
+        updateFileList();
+    }
+    
+    function updateFileList() {
+        if (selectedFiles.length === 0) {
+            fileList.innerHTML = '';
+            uploadBtn.disabled = true;
+            return;
+        }
+        
+        uploadBtn.disabled = docModelSelect.value === '';
+        
+        fileList.innerHTML = selectedFiles.map((file, idx) => `
+            <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded mb-1">
+                <span><i class="bi bi-file-earmark me-2"></i>${file.name}</span>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${idx})">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+    
+    window.removeFile = function(idx) {
+        selectedFiles.splice(idx, 1);
+        updateFileList();
+    };
+
+    // Text classification form
+    textForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const text = textArea.value.trim();
+        const modelName = modelSelect.value;
+        
+        if (!text) {
+            showToast('Please enter some text', 'warning');
+            return;
+        }
+
+        if (!modelName) {
+            showToast('Please select a model', 'warning');
+            return;
+        }
+
+        classifyBtn.classList.add('loading');
+        classifyBtn.disabled = true;
+        inferenceTimeEl.textContent = '';
+
+        try {
+            const kgBackend = document.getElementById('kgBackend').value;
+            const response = await apiCall(`/bert/classify?kg_backend=${encodeURIComponent(kgBackend)}`, 'POST', { 
+                text,
+                model_name: modelName
+            });
+            
+            if (response.success && response.result) {
+                displayResults(response);
+            } else {
+                showError(response.error || 'Classification failed');
+            }
+        } catch (error) {
+            showError(error.message);
+        } finally {
+            classifyBtn.classList.remove('loading');
+            classifyBtn.disabled = false;
+        }
+    });
+
+    // Document upload form
+    documentForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (selectedFiles.length === 0) {
+            showToast('Please select at least one document', 'warning');
+            return;
+        }
+        
+        const modelName = docModelSelect.value;
+        if (!modelName) {
+            showToast('Please select a model', 'warning');
+            return;
+        }
+
+        uploadBtn.classList.add('loading');
+        uploadBtn.disabled = true;
+        progressContainer.classList.remove('d-none');
+        inferenceTimeEl.textContent = '';
+
+        const allEntities = [];
+        const allValidatedEntities = [];
+        let kgStats = { exact_matches: 0, similar_matches: 0, low_matches: 0, not_found: 0 };
+        
+        try {
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                const progress = ((i + 1) / selectedFiles.length) * 100;
+                uploadProgress.style.width = `${progress * 0.8}%`;
+                progressText.textContent = `Processing ${file.name}... (${i + 1}/${selectedFiles.length})`;
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('model_name', modelName);
+                formData.append('chunk_size', document.getElementById('chunkSize').value);
+                formData.append('min_confidence', document.getElementById('minConfidence').value);
+                formData.append('kg_backend', document.getElementById('kgBackend').value);
+
+                const response = await fetch('/bert/classify/document', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (data.success && data.result) {
+                    // Add source file info to entities
+                    data.result.entities.forEach(entity => {
+                        entity.source_file = file.name;
+                    });
+                    allEntities.push(...data.result.entities);
+                    
+                    // Collect KG validation data
+                    if (data.kg_validation) {
+                        allValidatedEntities.push(...(data.kg_validation.validated_entities || []));
+                        kgStats.exact_matches += data.kg_validation.exact_matches || 0;
+                        kgStats.similar_matches += data.kg_validation.similar_matches || 0;
+                        kgStats.low_matches += data.kg_validation.low_matches || 0;
+                        kgStats.not_found += data.kg_validation.not_found || 0;
+                    }
+                } else if (data.error || data.detail) {
+                    showToast(`Error in ${file.name}: ${data.error || data.detail}`, 'warning');
+                }
+            }
+            
+            uploadProgress.style.width = '100%';
+            progressText.textContent = 'Complete!';
+            
+            // Display combined results
+            displayResults({
+                success: true,
+                result: { entities: allEntities },
+                kg_validation: {
+                    validated_entities: allValidatedEntities,
+                    ...kgStats
+                },
+                model_used: modelName
+            }, true, selectedFiles.length);
+            
+            inferenceTimeEl.textContent = `${allEntities.length} entities from ${selectedFiles.length} files`;
+            
+        } catch (error) {
+            showError(error.message);
+        } finally {
+            uploadBtn.classList.remove('loading');
+            uploadBtn.disabled = false;
+            setTimeout(() => progressContainer.classList.add('d-none'), 2000);
+        }
+    });
+
+    function showError(message) {
+        resultsContainer.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                ${message}
+            </div>
+        `;
+    }
+    
+    function getStatusIcon(status) {
+        switch(status) {
+            case 'exact_match': return 'bi-check-circle-fill text-success';
+            case 'similar_match': return 'bi-check-circle text-warning';
+            case 'low_match': return 'bi-exclamation-circle text-orange';
+            case 'not_found': return 'bi-x-circle text-danger';
+            default: return 'bi-question-circle text-muted';
+        }
+    }
+
+    function displayResults(response, isDocument = false, fileCount = 0) {
+        const entities = response.result.entities;
+        const modelUsed = response.model_used || 'Unknown';
+        const validation = response.kg_validation;
+
+        if (entities.length === 0) {
+            resultsContainer.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    No medical entities found.
+                </div>
+            `;
+            return;
+        }
+
+        // Build validation map for quick lookup
+        const validationMap = {};
+        if (validation && validation.validated_entities) {
+            validation.validated_entities.forEach(v => {
+                const key = `${v.entity.text}_${v.entity.entity_type}`;
+                validationMap[key] = {
+                    status: v.validation_status,
+                    similarity_score: v.kg_matches && v.kg_matches.length > 0 ? v.kg_matches[0].similarity_score : null,
+                    matched_uri: v.kg_matches && v.kg_matches.length > 0 ? v.kg_matches[0].kg_uri : null,
+                    matched_label: v.kg_matches && v.kg_matches.length > 0 ? v.kg_matches[0].kg_label : null
+                };
+            });
+        }
+
+        // Status legend
+        let html = `
+            <div class="status-legend">
+                <div class="status-legend-item">
+                    <span class="status-dot exact_match"></span>
+                    <span>Exact Match (≥95%)</span>
+                </div>
+                <div class="status-legend-item">
+                    <span class="status-dot similar_match"></span>
+                    <span>Similar Match (70-94%)</span>
+                </div>
+                <div class="status-legend-item">
+                    <span class="status-dot low_match"></span>
+                    <span>Low Match (60-69%)</span>
+                </div>
+                <div class="status-legend-item">
+                    <span class="status-dot not_found"></span>
+                    <span>Not Found (<60%)</span>
+                </div>
+            </div>
+        `;
+        
+        // KG Validation summary
+        if (validation) {
+            html += `
+                <div class="alert alert-secondary py-2 mb-3">
+                    <small>
+                        <i class="bi bi-diagram-3 me-1"></i>
+                        <strong>KG Validation:</strong>
+                        <span class="badge bg-success ms-2">${validation.exact_matches} exact</span>
+                        <span class="badge ms-1" style="background-color: #fd7e14; color: white;">${validation.similar_matches} similar</span>
+                        <span class="badge ms-1" style="background-color: #e8a838; color: white;">${validation.low_matches || 0} low match</span>
+                        <span class="badge bg-danger ms-1">${validation.not_found || 0} not found</span>
+                    </small>
+                </div>
+            `;
+        }
+        
+        // Group entities by type and remove duplicates
+        const grouped = {};
+        const seen = new Set();
+        entities.forEach(entity => {
+            const type = entity.type || entity.entity_type;
+            const text = entity.text.trim().toLowerCase();
+            const uniqueKey = `${type}_${text}`;
+            
+            // Skip if we've already seen this entity
+            if (seen.has(uniqueKey)) {
+                return;
+            }
+            seen.add(uniqueKey);
+            
+            if (!grouped[type]) {
+                grouped[type] = [];
+            }
+            grouped[type].push(entity);
+        });
+
+        // Count unique entities
+        const uniqueCount = seen.size;
+        
+        html += `
+            <div class="mb-3">
+                <small class="text-muted">
+                    Model: ${modelUsed} | Found ${uniqueCount} entities
+                    ${isDocument ? ` from ${fileCount} document(s)` : ''}
+                </small>
+                <span class="ms-3 text-muted">
+                    <i class="bi bi-hand-index-thumb me-1"></i>
+                    <small>Click non-matched entities to add to KG</small>
+                </span>
+            </div>
+        `;
+
+        for (const [type, items] of Object.entries(grouped)) {
+            html += `
+                <div class="mb-3">
+                    <h6 class="text-uppercase text-muted mb-2">
+                        <span class="badge badge-entity entity-${type}">${type}</span>
+                        <span class="ms-2">(${items.length})</span>
+                    </h6>
+                    <div class="d-flex flex-wrap gap-2">
+            `;
+            items.forEach(entity => {
+                const key = `${entity.text}_${type}`;
+                const vResult = validationMap[key];
+                const status = vResult ? vResult.status : 'not_found';
+                const similarity = vResult && vResult.similarity_score 
+                    ? `${(vResult.similarity_score * 100).toFixed(0)}%` 
+                    : '';
+                const matchedUri = vResult && vResult.matched_uri ? vResult.matched_uri : '';
+                const matchedLabel = vResult && vResult.matched_label ? vResult.matched_label : '';
+                const isClickable = status !== 'exact_match';
+                
+                const entityDataAttr = isClickable ? `
+                    data-entity-text="${entity.text}"
+                    data-entity-type="${type}"
+                    data-entity-status="${status}"
+                    data-entity-similarity="${similarity}"
+                    data-matched-uri="${matchedUri}"
+                    data-matched-label="${matchedLabel}"
+                ` : '';
+                
+                const sourceFile = entity.source_file ? ` • ${entity.source_file}` : '';
+                
+                html += `
+                    <div class="entity-card border rounded px-3 py-2 entity-status-${status} ${isClickable ? 'clickable-entity' : ''}"
+                         ${entityDataAttr}
+                         title="${isClickable ? 'Click to add to KG' : 'Already in KG'}${sourceFile}">
+                        <i class="bi ${getStatusIcon(status)} me-1"></i>
+                        <strong>${entity.text}</strong>
+                        ${similarity ? `<small class="ms-2 opacity-75">${similarity}</small>` : ''}
+                        ${matchedLabel && status !== 'not_found' ? `<small class="d-block opacity-75">→ ${matchedLabel}</small>` : ''}
+                    </div>
+                `;
+            });
+            html += '</div></div>';
+        }
+
+        resultsContainer.innerHTML = html;
+        
+        // Add click handlers for entity cards
+        document.querySelectorAll('.clickable-entity').forEach(card => {
+            card.addEventListener('click', function() {
+                openAddEntityModal(this.dataset);
+            });
+        });
+    }
+    
+    // Modal functions
+    async function openAddEntityModal(dataset) {
+        currentEntityData = {
+            text: dataset.entityText,
+            entity_type: dataset.entityType,
+            status: dataset.entityStatus,
+            similarity: dataset.entitySimilarity,
+            matched_uri: dataset.matchedUri,
+            matched_label: dataset.matchedLabel
+        };
+        
+        // Populate modal
+        document.getElementById('modalEntityText').textContent = currentEntityData.text;
+        document.getElementById('modalEntityType').innerHTML = `<span class="badge badge-entity entity-${currentEntityData.entity_type}">${currentEntityData.entity_type}</span>`;
+        
+        const statusBadge = {
+            'similar_match': '<span class="badge bg-warning text-dark">Similar Match</span>',
+            'low_match': '<span class="badge bg-orange">Low Match</span>',
+            'not_found': '<span class="badge bg-danger">Not Found</span>'
+        };
+        document.getElementById('modalEntityStatus').innerHTML = statusBadge[currentEntityData.status] || '<span class="badge bg-secondary">Unknown</span>';
+        document.getElementById('modalEntitySimilarity').textContent = currentEntityData.similarity || 'N/A';
+        
+        // Reset UI
+        const similarSection = document.getElementById('similarEntitiesSection');
+        const noSimilarSection = document.getElementById('noSimilarSection');
+        const similarList = document.getElementById('similarEntitiesList');
+        const linkOptions = document.getElementById('linkOptions');
+        const loadingSpinner = document.getElementById('loadingSimilar');
+        
+        similarSection.classList.remove('d-none');
+        noSimilarSection.classList.add('d-none');
+        linkOptions.classList.add('d-none');
+        loadingSpinner.classList.remove('d-none');
+        selectedLinkUri = null;
+        
+        try {
+            const response = await fetch(`/classify/kg/find-similar?text=${encodeURIComponent(currentEntityData.text)}&entity_type=${currentEntityData.entity_type}&min_score=0.5`);
+            const data = await response.json();
+            
+            loadingSpinner.classList.add('d-none');
+            
+            if (data.success && data.matches && data.matches.length > 0) {
+                similarSection.classList.remove('d-none');
+                
+                let listHtml = '<div class="list-group">';
+                data.matches.forEach((match, idx) => {
+                    const score = (match.similarity_score * 100).toFixed(0);
+                    listHtml += `
+                        <label class="list-group-item list-group-item-action d-flex align-items-center">
+                            <input class="form-check-input me-3 similar-entity-radio" type="radio" 
+                                   name="similarEntity" value="${match.uri}" 
+                                   data-label="${match.label}" ${idx === 0 ? 'checked' : ''}>
+                            <div class="flex-grow-1">
+                                <strong>${match.label}</strong>
+                                <small class="d-block text-muted">${score}% match • ${match.match_method}</small>
+                            </div>
+                        </label>
+                    `;
+                });
+                listHtml += `
+                    <label class="list-group-item list-group-item-action d-flex align-items-center">
+                        <input class="form-check-input me-3 similar-entity-radio" type="radio" 
+                               name="similarEntity" value="" data-label="">
+                        <div class="flex-grow-1">
+                            <strong>Add as new entity</strong>
+                            <small class="d-block text-muted">Don't link to existing entities</small>
+                        </div>
+                    </label>
+                `;
+                listHtml += '</div>';
+                similarList.innerHTML = listHtml;
+                
+                // Show/hide link options based on selection
+                document.querySelectorAll('.similar-entity-radio').forEach(radio => {
+                    radio.addEventListener('change', function() {
+                        selectedLinkUri = this.value;
+                        if (this.value) {
+                            linkOptions.classList.remove('d-none');
+                        } else {
+                            linkOptions.classList.add('d-none');
+                        }
+                    });
+                });
+                
+                // Initialize with first selection
+                selectedLinkUri = data.matches[0].uri;
+                linkOptions.classList.remove('d-none');
+                
+            } else {
+                similarSection.classList.add('d-none');
+                noSimilarSection.classList.remove('d-none');
+            }
+        } catch (error) {
+            console.error('Error finding similar entities:', error);
+            loadingSpinner.classList.add('d-none');
+            similarSection.classList.add('d-none');
+            noSimilarSection.classList.remove('d-none');
+        }
+        
+        addEntityModal.show();
+    }
+    
+    // Confirm add entity to KG
+    confirmAddBtn.addEventListener('click', async function() {
+        if (!currentEntityData) return;
+        
+        confirmAddBtn.disabled = true;
+        confirmAddBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Adding...';
+        
+        try {
+            const payload = {
+                text: currentEntityData.text,
+                entity_type: currentEntityData.entity_type,
+                normalized_form: currentEntityData.text
+            };
+            
+            // Add link info if selected
+            if (selectedLinkUri) {
+                payload.link_to_uri = selectedLinkUri;
+                const selectedLinkType = document.querySelector('input[name="linkType"]:checked');
+                payload.link_type = selectedLinkType ? selectedLinkType.value : 'closeMatch';
+            }
+            
+            const response = await apiCall('/classify/kg/add-entity', 'POST', payload);
+            
+            if (response.success) {
+                showToast(response.message, 'success');
+                addEntityModal.hide();
+                
+                // Update the entity card to show it's now added
+                const cards = document.querySelectorAll('.clickable-entity');
+                cards.forEach(card => {
+                    if (card.dataset.entityText === currentEntityData.text && 
+                        card.dataset.entityType === currentEntityData.entity_type) {
+                        card.classList.remove('clickable-entity', 'entity-status-not_found', 
+                                             'entity-status-low_match', 'entity-status-similar_match');
+                        card.classList.add('entity-status-exact_match');
+                        card.querySelector('i').className = 'bi bi-check-circle-fill text-success me-1';
+                        card.title = 'Already in KG';
+                    }
+                });
+            } else {
+                showToast(response.error || 'Failed to add entity', 'danger');
+            }
+        } catch (error) {
+            showToast(error.message, 'danger');
+        } finally {
+            confirmAddBtn.disabled = false;
+            confirmAddBtn.innerHTML = '<i class="bi bi-plus-lg me-1"></i>Add to Knowledge Graph';
+        }
+    });
+
+});
+</script>
+{% endblock %}

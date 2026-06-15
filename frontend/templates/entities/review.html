@@ -1,0 +1,1838 @@
+{% extends "base.html" %}
+
+{% block title %}Entity Review - Scorecard Analysis{% endblock %}
+
+{% block extra_css %}
+<style>
+    .score-badge {
+        display: inline-block;
+        width: 60px;
+        text-align: center;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-weight: 600;
+    }
+    .score-excellent { background-color: #d4edda; color: #155724; }
+    .score-good { background-color: #d1ecf1; color: #0c5460; }
+    .score-fair { background-color: #fff3cd; color: #856404; }
+    .score-poor { background-color: #f8d7da; color: #721c24; }
+    
+    .c-card {
+        border-left: 4px solid;
+        transition: all 0.2s ease;
+    }
+    .c-card:hover {
+        transform: translateX(4px);
+    }
+    .c-congruence { border-left-color: #0d6efd; }
+    .c-coverage { border-left-color: #198754; }
+    .c-constraint { border-left-color: #dc3545; }
+    .c-completeness { border-left-color: #ffc107; }
+    .c-consistency { border-left-color: #6f42c1; }
+    
+    .c-card .card-title i {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 8px;
+        font-size: 0.8rem;
+    }
+    .c-congruence .card-title i { background: #e7f1ff; color: #0d6efd; }
+    .c-coverage .card-title i { background: #d1e7dd; color: #198754; }
+    .c-constraint .card-title i { background: #f8d7da; color: #dc3545; }
+    .c-completeness .card-title i { background: #fff3cd; color: #856404; }
+    .c-consistency .card-title i { background: #e2d9f3; color: #6f42c1; }
+    
+    .stat-card {
+        text-align: center;
+        padding: 20px;
+    }
+    .stat-card h2 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+    .stat-card small {
+        color: #6c757d;
+    }
+    
+    .progress-thin {
+        height: 8px;
+        border-radius: 4px;
+    }
+    
+    .review-table th {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        color: #6c757d;
+    }
+    
+    .radar-placeholder {
+        height: 300px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+    }
+    
+    .violation-tag {
+        background: #ffebee;
+        color: #c62828;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        margin: 2px;
+        display: inline-block;
+    }
+    
+    .status-passed { color: #198754; }
+    .status-failed { color: #dc3545; }
+    .status-needs_review { color: #ffc107; }
+    .status-pending { color: #6c757d; }
+    
+    .quick-eval-form {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 20px;
+    }
+    
+    .score-breakdown {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+    }
+    .score-breakdown .score-item {
+        text-align: center;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    .score-breakdown .score-item .value {
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+    th.sortable {
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+        padding-right: 18px !important;
+    }
+    th.sortable:hover {
+        background-color: #e9ecef;
+    }
+    th.sortable::after {
+        content: '\2195';
+        position: absolute;
+        right: 4px;
+        opacity: 0.3;
+        font-size: 0.75rem;
+    }
+    th.sortable.sort-asc::after {
+        content: '\2191';
+        opacity: 0.8;
+    }
+    th.sortable.sort-desc::after {
+        content: '\2193';
+        opacity: 0.8;
+    }
+    #bulkProgress {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 1080;
+        min-width: 280px;
+        display: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,.25);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    #bulkProgress .progress { height: 6px; border-radius: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="bulkProgress" class="card">
+    <div class="card-body py-2 px-3">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <small class="fw-semibold" id="progressLabel">Processing...</small>
+            <div>
+                <small class="text-primary fw-bold me-2" id="progressPct">0%</small>
+                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="cancelBulkOperation()" title="Cancel" id="cancelBtn">
+                    <i class="bi bi-x-lg" style="font-size:.7rem"></i>
+                </button>
+            </div>
+        </div>
+        <div class="progress">
+            <div id="progressBar" class="progress-bar bg-primary" style="width:0%"></div>
+        </div>
+        <small class="text-muted" id="progressDetail"></small>
+    </div>
+</div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">
+            <i class="bi bi-clipboard2-check text-primary me-2"></i>
+            Entity Review
+        </h1>
+        <p class="text-muted mb-0">Evaluate entities using the adapted 5 Cs Scorecard</p>
+    </div>
+    <div>
+        <button class="btn btn-outline-primary me-2" onclick="loadStats()">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#quickEvalModal">
+            <i class="bi bi-plus-lg"></i> Quick Evaluate
+        </button>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4" id="statsCards">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <h2 id="statTotal" class="text-primary">-</h2>
+            <small>Total Reviews</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <h2 id="statPassed" class="text-success">-</h2>
+            <small>Passed</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <h2 id="statNeedsReview" class="text-warning">-</h2>
+            <small>Needs Review</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <h2 id="statFailed" class="text-danger">-</h2>
+            <small>Failed</small>
+        </div>
+    </div>
+</div>
+
+<!-- Average Scores -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-bar-chart me-2"></i>Average Scores (5 Cs)</span>
+    </div>
+    <div class="card-body">
+        <div class="score-breakdown" id="avgScores">
+            <div class="score-item c-congruence">
+                <div class="value" id="avgCongruence">-</div>
+                <small>Congruence</small>
+            </div>
+            <div class="score-item c-coverage">
+                <div class="value" id="avgCoverage">-</div>
+                <small>Coverage</small>
+            </div>
+            <div class="score-item c-constraint">
+                <div class="value" id="avgConstraint">-</div>
+                <small>Constraint</small>
+            </div>
+            <div class="score-item c-completeness">
+                <div class="value" id="avgCompleteness">-</div>
+                <small>Completeness</small>
+            </div>
+            <div class="score-item c-consistency">
+                <div class="value" id="avgConsistency">-</div>
+                <small>Consistency</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label small text-muted">Status</label>
+                <select class="form-select" id="filterStatus" onchange="loadReviews()">
+                    <option value="">All Statuses</option>
+                    <option value="passed">Passed</option>
+                    <option value="needs_review">Needs Review</option>
+                    <option value="failed">Failed</option>
+                    <option value="pending">Pending</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted">Recommendation</label>
+                <select class="form-select" id="filterRecommendation" onchange="loadReviews()">
+                    <option value="">All</option>
+                    <option value="approve">Approve</option>
+                    <option value="reject">Reject</option>
+                    <option value="manual_review">Manual Review</option>
+                    <option value="verify_type">Verify Type</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted">Min Score</label>
+                <input type="number" class="form-control" id="filterMinScore" min="0" max="100" placeholder="0" onchange="loadReviews()">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted">Max Score</label>
+                <input type="number" class="form-control" id="filterMaxScore" min="0" max="100" placeholder="100" onchange="loadReviews()">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted">Entity Type</label>
+                <select class="form-select" id="filterType" onchange="loadReviews()">
+                    <option value="">All Types</option>
+                    <option value="disease">Disease</option>
+                    <option value="symptom">Symptom</option>
+                    <option value="finding">Finding</option>
+                    <option value="organ">Organ</option>
+                    <option value="imaging_procedure">Imaging Procedure</option>
+                    <option value="examination_procedure">Examination Procedure</option>
+                    <option value="therapeutic_procedure">Therapeutic Procedure</option>
+                    <option value="imaging_result">Imaging Result</option>
+                    <option value="examination_measure">Examination Measure</option>
+                    <option value="parameter">Parameter</option>
+                    <option value="score">Score</option>
+                    <option value="therapy">Therapy</option>
+                    <option value="substance">Substance</option>
+                    <option value="adverse_event">Adverse Event</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reviews Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-ul me-2"></i>Entity Reviews</span>
+        <div>
+            <button class="btn btn-sm btn-outline-secondary me-2" onclick="reEvaluateAll()">
+                <i class="bi bi-arrow-repeat"></i> Re-evaluate All
+            </button>
+            <button class="btn btn-sm btn-outline-primary" onclick="reviewAllPending()">
+                <i class="bi bi-play-fill"></i> Review All Pending
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover review-table mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="sortable" data-sort="entity_text">Entity</th>
+                        <th class="sortable" data-sort="entity_type">Type</th>
+                        <th class="sortable" data-sort="congruence">Cong.</th>
+                        <th class="sortable" data-sort="coverage">Cov.</th>
+                        <th class="sortable" data-sort="constraint">Const.</th>
+                        <th class="sortable" data-sort="completeness">Comp.</th>
+                        <th class="sortable" data-sort="consistency">Cons.</th>
+                        <th class="sortable" data-sort="overall_score">Overall</th>
+                        <th class="sortable" data-sort="review_status">Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="reviewsTable">
+                    <tr>
+                        <td colspan="10" class="text-center py-4 text-muted">
+                            <i class="bi bi-hourglass-split me-2"></i>Loading reviews...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted">
+            Showing <span id="showingCount">0</span> of <span id="totalCount">0</span> reviews
+        </small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Legend / Scorecard Explanation -->
+<div class="card mt-4">
+    <div class="card-header">
+        <i class="bi bi-info-circle me-2"></i>Scorecard Legend - Adapted from "7 Cs for Synthetic Medical Data Evaluation" (Zamzmi et al., 2025)
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table table-sm table-borderless mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 90px">Column</th>
+                            <th>Scorecard Metric</th>
+                            <th>Paper Metrics Used</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge bg-secondary">Entity</span></td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>The medical entity text being evaluated</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-secondary">Type</span></td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Entity classification: disease, symptom, finding, organ, imaging_procedure, examination_procedure, therapeutic_procedure, imaging_result, examination_measure, parameter, score, therapy, substance, adverse_event</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-primary">Cong.</span></td>
+                            <td><strong>1. Congruence</strong></td>
+                            <td><em>Cosine Similarity</em>, <em>Distance to Centroid</em> (Embedding space, Maximize)</td>
+                            <td>Semantic alignment with KG. Uses embedding similarity to find nearest entity. High = matches terminology.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-success">Cov.</span></td>
+                            <td><strong>2. Coverage</strong></td>
+                            <td><em>Recall</em>, <em>Coverage</em>, <em>Clustering-Based Metrics</em> (Embedding space, Maximize)</td>
+                            <td>Gap-filling assessment. Counts similar entities, checks if novel. High = valuable addition.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-danger">Const.</span></td>
+                            <td><strong>3. Constraint</strong></td>
+                            <td><em>Constraint Violation Rate</em>, <em>Distance to Constraint Boundary</em> (Minimize violations)</td>
+                            <td>Clinical validity. Checks format, length, characters, medical plausibility. High = valid concept.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <table class="table table-sm table-borderless mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 90px">Column</th>
+                            <th>Scorecard Metric</th>
+                            <th>Paper Metrics Used</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge bg-warning text-dark">Comp.</span></td>
+                            <td><strong>4. Completeness</strong></td>
+                            <td><em>Proportion of Required Fields</em>, <em>Missing Data %</em> (Metadata, Maximize/Minimize)</td>
+                            <td>Required attributes present: type, definition, normalized form, context, confidence.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge" style="background-color: #6f42c1; color: white;">Cons.</span></td>
+                            <td><strong>5. Consistency</strong></td>
+                            <td><em>Variance</em>, <em>Max-Min Difference</em> (Quality Metrics, Minimize variance)</td>
+                            <td>Cross-validation agreement. Compares LLM vs BERT classification. High = classifiers agree.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-dark">Overall</span></td>
+                            <td><strong>Weighted Score</strong></td>
+                            <td colspan="2" id="weightedScoreFormula">
+                                <strong>Congruence (<span class="wt-congruence">25</span>%)</strong> + <strong>Constraint (<span class="wt-constraint">25</span>%)</strong> + <strong>Consistency (<span class="wt-consistency">20</span>%)</strong> + Coverage (<span class="wt-coverage">15</span>%) + Completeness (<span class="wt-completeness">15</span>%)
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-info">Status</span></td>
+                            <td><strong>Review Status</strong></td>
+                            <td colspan="2">
+                                <span class="text-success">✓ Passed</span> (≥<span class="th-pass">75</span>%) | 
+                                <span class="text-warning">⚠ Review</span> (<span class="th-review">50</span>-<span class="th-pass-minus">74</span>%) | 
+                                <span class="text-danger">✗ Failed</span> (&lt;<span class="th-fail">50</span>%)
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-12">
+                <h6><i class="bi bi-calculator me-2"></i>Weight Justification <small class="text-muted" id="configLoadStatus"></small></h6>
+                <div id="weightJustificationContent">
+                    <ul class="small mb-2">
+                        <li><strong>Congruence (<span id="weightCongruence">25</span>%)</strong> - High weight: Semantic alignment with existing KG terminology is crucial for interoperability and consistency.</li>
+                        <li><strong>Constraint (<span id="weightConstraint">25</span>%)</strong> - High weight: Clinical validity is paramount in medical data; invalid entities can cause patient safety issues.</li>
+                        <li><strong>Consistency (<span id="weightConsistency">20</span>%)</strong> - Medium-high: Agreement between independent classifiers (LLM + BERT) indicates reliable classification.</li>
+                        <li><strong>Coverage (<span id="weightCoverage">15</span>%)</strong> - Lower weight: Novelty is valuable but not critical; redundant valid entities are acceptable.</li>
+                        <li><strong>Completeness (<span id="weightCompleteness">15</span>%)</strong> - Lower weight: Missing optional fields (context, definition) don't invalidate the core entity.</li>
+                    </ul>
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="progress flex-grow-1" style="height: 24px; border-radius: 12px;">
+                            <div id="barCongruence" class="progress-bar bg-primary" style="width: 25%;" title="Congruence">25%</div>
+                            <div id="barConstraint" class="progress-bar bg-danger" style="width: 25%;" title="Constraint">25%</div>
+                            <div id="barConsistency" class="progress-bar" style="width: 20%; background-color: #6f42c1;" title="Consistency">20%</div>
+                            <div id="barCoverage" class="progress-bar bg-success" style="width: 15%;" title="Coverage">15%</div>
+                            <div id="barCompleteness" class="progress-bar bg-warning text-dark" style="width: 15%;" title="Completeness">15%</div>
+                        </div>
+                        <a href="/app/config/entity" class="btn btn-sm btn-outline-secondary ms-2" title="Configure Weights">
+                            <i class="bi bi-gear"></i>
+                        </a>
+                    </div>
+                    <small class="text-muted d-flex justify-content-between">
+                        <span><strong>Thresholds:</strong> 
+                            <span class="text-success">✓ Pass ≥<span id="thresholdPass">75</span>%</span> | 
+                            <span class="text-warning">⚠ Review ≥<span id="thresholdReview">50</span>%</span> | 
+                            <span class="text-danger">✗ Fail &lt;<span id="thresholdFail">50</span>%</span>
+                        </span>
+                    </small>
+                </div>
+                <small class="text-muted">
+                    <strong>Original 7 Cs:</strong> Congruence, Coverage, Constraint, Completeness, <em>Compliance</em>, <em>Comprehension</em>, Consistency. 
+                    We use 5 Cs for KG entity evaluation. <em>Compliance</em> (K-Anonymity, L-Diversity, T-Closeness) and <em>Comprehension</em> (documentation) are less applicable for individual entities.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Evaluate Modal -->
+<div class="modal fade" id="quickEvalModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-lightning me-2"></i>Quick Entity Evaluation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="quick-eval-form">
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Entity Text</label>
+                            <input type="text" class="form-control" id="evalEntityText" placeholder="e.g., diabetes mellitus type 2">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Entity Type</label>
+                            <select class="form-select" id="evalEntityType">
+                                <option value="disease">Disease</option>
+                                <option value="symptom">Symptom</option>
+                                <option value="finding">Finding</option>
+                                <option value="organ">Organ</option>
+                                <option value="imaging_procedure">Imaging Procedure</option>
+                                <option value="examination_procedure">Examination Procedure</option>
+                                <option value="therapeutic_procedure">Therapeutic Procedure</option>
+                                <option value="imaging_result">Imaging Result</option>
+                                <option value="examination_measure">Examination Measure</option>
+                                <option value="parameter">Parameter</option>
+                                <option value="score">Score</option>
+                                <option value="therapy">Therapy</option>
+                                <option value="substance">Substance</option>
+                                <option value="adverse_event">Adverse Event</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="evalRunBert" checked>
+                            <label class="form-check-label" for="evalRunBert">
+                                Run BERT cross-validation
+                            </label>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="runQuickEval()">
+                        <i class="bi bi-play-fill me-1"></i>Evaluate
+                    </button>
+                </div>
+                
+                <div id="evalResults" class="mt-4" style="display: none;">
+                    <hr>
+                    <h6 class="mb-3">Evaluation Results</h6>
+                    
+                    <!-- Overall Score -->
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="me-3">
+                            <div id="evalOverallScore" class="score-badge score-fair" style="font-size: 1.5rem; width: auto; padding: 8px 16px;">
+                                0%
+                            </div>
+                        </div>
+                        <div>
+                            <strong id="evalStatus">-</strong><br>
+                            <small class="text-muted">Recommendation: <span id="evalRecommendation">-</span></small>
+                        </div>
+                    </div>
+                    
+                    <!-- Individual C Scores -->
+                    <div class="row g-3" id="evalCScores">
+                        <!-- Will be populated by JS -->
+                    </div>
+                    
+                    <!-- Explanation -->
+                    <div class="mt-4">
+                        <h6>Detailed Explanation</h6>
+                        <pre id="evalExplanation" style="background: #f8f9fa; color: #333; font-size: 0.85rem; max-height: 300px; overflow-y: auto;"></pre>
+                    </div>
+                    
+                    <div class="text-end mt-3">
+                        <button class="btn btn-success" onclick="saveEvaluation()">
+                            <i class="bi bi-save me-1"></i>Save Review
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Review Detail Modal -->
+<div class="modal fade" id="reviewDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-earmark-text me-2"></i>Review Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="reviewDetailContent">
+                <!-- Will be populated by JS -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-outline-primary" onclick="editReviewEntity(currentReviewId, currentEntityText)">
+                    <i class="bi bi-pencil"></i> Modify
+                </button>
+                <button type="button" class="btn btn-primary" onclick="showAddToKGModal(currentReviewId, currentEntityText)">
+                    <i class="bi bi-plus-circle"></i> Add to KG
+                </button>
+                <button type="button" class="btn btn-success" onclick="updateReviewStatus(currentReviewId, 'passed')">
+                    <i class="bi bi-check-lg"></i> Mark Passed
+                </button>
+                <button type="button" class="btn btn-danger" onclick="updateReviewStatus(currentReviewId, 'failed')">
+                    <i class="bi bi-x-lg"></i> Mark Failed
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Entity Modal (same as Pending Entities) -->
+<div class="modal fade" id="editEntityModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Edit Entity</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editReviewId">
+                <input type="hidden" id="editPendingEntityId">
+                <div class="mb-3">
+                    <label class="form-label">Entity Text</label>
+                    <input type="text" class="form-control" id="editEntityText">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Entity Type</label>
+                    <select class="form-select" id="editEntityType">
+                        <option value="disease">Disease</option>
+                        <option value="symptom">Symptom</option>
+                        <option value="finding">Finding</option>
+                        <option value="organ">Organ</option>
+                        <option value="imaging_procedure">Imaging Procedure</option>
+                        <option value="examination_procedure">Examination Procedure</option>
+                        <option value="therapeutic_procedure">Therapeutic Procedure</option>
+                        <option value="imaging_result">Imaging Result</option>
+                        <option value="examination_measure">Examination Measure</option>
+                        <option value="parameter">Parameter</option>
+                        <option value="score">Score</option>
+                        <option value="therapy">Therapy</option>
+                        <option value="substance">Substance</option>
+                        <option value="adverse_event">Adverse Event</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Normalized Text</label>
+                    <input type="text" class="form-control" id="editNormalizedText" placeholder="Optional">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEditBtn">
+                    <i class="bi bi-check-lg me-1"></i>Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add to KG Modal (same as Pending Entities) -->
+<div class="modal fade" id="addToKGModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-diagram-3 me-2"></i>Add to Knowledge Graph</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="addKGReviewId">
+                
+                <div class="mb-4 p-3 bg-light rounded">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="text-muted small">Entity Text</label>
+                            <h5 id="addKGEntityText" class="mb-0"></h5>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="text-muted small">Entity Type</label>
+                            <div id="addKGEntityType"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="text-muted small">Review Score</label>
+                            <div id="addKGReviewScore">-</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="similarEntitiesSection">
+                    <h6><i class="bi bi-search me-2"></i>Similar Entities in KG</h6>
+                    <div class="spinner-border spinner-border-sm" id="loadingSimilar"></div>
+                    <div id="similarEntitiesList" class="mb-3"></div>
+                    
+                    <div id="linkOptions" class="d-none border rounded p-3 bg-light">
+                        <h6 class="mb-3">Link Type</h6>
+                        <div class="row">
+                            <div class="col-md-4 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="linkType" value="sameAs">
+                                    <label class="form-check-label">
+                                        <strong>Same As</strong>
+                                        <small class="d-block text-muted">Entities are identical</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="linkType" value="closeMatch" checked>
+                                    <label class="form-check-label">
+                                        <strong>Close Match</strong>
+                                        <small class="d-block text-muted">Close semantic match</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="linkType" value="relatedTo">
+                                    <label class="form-check-label">
+                                        <strong>Related To</strong>
+                                        <small class="d-block text-muted">General relationship</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="noSimilarSection" class="d-none">
+                    <div class="alert alert-secondary">
+                        <i class="bi bi-plus-lg me-2"></i>
+                        This entity will be added as a new entry in the Knowledge Graph.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirmAddToKG">
+                    <i class="bi bi-plus-lg me-1"></i>Add to Knowledge Graph
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentPage = 1;
+    let pageSize = 20;
+    let currentReviewId = null;
+    let currentEntityText = null;
+    let currentEntityType = null;
+    let currentPendingEntityId = null;
+    let lastEvalResult = null;
+    let allReviews = [];
+    let sortColumn = null;
+    let sortDirection = 'asc';
+    let entityConfig = null;
+    let selectedLinkUri = null;
+    let currentAddKGReview = null;
+    
+    // Modal instances
+    let editModal, addKGModal;
+    
+    // Load initial data
+    document.addEventListener('DOMContentLoaded', function() {
+        editModal = new bootstrap.Modal(document.getElementById('editEntityModal'));
+        addKGModal = new bootstrap.Modal(document.getElementById('addToKGModal'));
+        
+        // Save edit button handler
+        document.getElementById('saveEditBtn').addEventListener('click', saveEntityEdit);
+        
+        // Confirm add to KG handler
+        document.getElementById('confirmAddToKG').addEventListener('click', confirmAddToKG);
+
+        // Sortable columns
+        document.querySelectorAll('th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const col = th.dataset.sort;
+                if (sortColumn === col) {
+                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortColumn = col;
+                    sortDirection = 'asc';
+                }
+                document.querySelectorAll('th.sortable').forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+                th.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+                loadReviews();
+            });
+        });
+
+        loadEntityConfig();
+        loadStats();
+        loadReviews();
+    });
+    
+    // Load entity configuration
+    async function loadEntityConfig() {
+        try {
+            const response = await fetch('/entity-config/');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.config) {
+                    entityConfig = data.config;
+                    updateWeightDisplay(entityConfig);
+                    document.getElementById('configLoadStatus').textContent = '(Loaded from DB)';
+                }
+            }
+        } catch (error) {
+            console.error('Error loading entity config:', error);
+            document.getElementById('configLoadStatus').textContent = '(Using defaults)';
+        }
+    }
+    
+    // Update weight display from config
+    function updateWeightDisplay(config) {
+        if (!config) return;
+        
+        // Update percentage text
+        document.getElementById('weightCongruence').textContent = Math.round(config.weight_congruence * 100);
+        document.getElementById('weightConstraint').textContent = Math.round(config.weight_constraint * 100);
+        document.getElementById('weightConsistency').textContent = Math.round(config.weight_consistency * 100);
+        document.getElementById('weightCoverage').textContent = Math.round(config.weight_coverage * 100);
+        document.getElementById('weightCompleteness').textContent = Math.round(config.weight_completeness * 100);
+        
+        // Update progress bars
+        document.getElementById('barCongruence').style.width = (config.weight_congruence * 100) + '%';
+        document.getElementById('barCongruence').textContent = Math.round(config.weight_congruence * 100) + '%';
+        
+        document.getElementById('barConstraint').style.width = (config.weight_constraint * 100) + '%';
+        document.getElementById('barConstraint').textContent = Math.round(config.weight_constraint * 100) + '%';
+        
+        document.getElementById('barConsistency').style.width = (config.weight_consistency * 100) + '%';
+        document.getElementById('barConsistency').textContent = Math.round(config.weight_consistency * 100) + '%';
+        
+        document.getElementById('barCoverage').style.width = (config.weight_coverage * 100) + '%';
+        document.getElementById('barCoverage').textContent = Math.round(config.weight_coverage * 100) + '%';
+        
+        document.getElementById('barCompleteness').style.width = (config.weight_completeness * 100) + '%';
+        document.getElementById('barCompleteness').textContent = Math.round(config.weight_completeness * 100) + '%';
+        
+        // Update thresholds (API uses threshold_pass/threshold_review)
+        document.getElementById('thresholdPass').textContent = Math.round(config.threshold_pass * 100);
+        document.getElementById('thresholdReview').textContent = Math.round(config.threshold_review * 100);
+        document.getElementById('thresholdFail').textContent = Math.round(config.threshold_review * 100);
+        
+        // Update table header weights
+        document.querySelectorAll('.wt-congruence').forEach(el => el.textContent = Math.round(config.weight_congruence * 100));
+        document.querySelectorAll('.wt-constraint').forEach(el => el.textContent = Math.round(config.weight_constraint * 100));
+        document.querySelectorAll('.wt-consistency').forEach(el => el.textContent = Math.round(config.weight_consistency * 100));
+        document.querySelectorAll('.wt-coverage').forEach(el => el.textContent = Math.round(config.weight_coverage * 100));
+        document.querySelectorAll('.wt-completeness').forEach(el => el.textContent = Math.round(config.weight_completeness * 100));
+        
+        // Update table header thresholds
+        document.querySelectorAll('.th-pass').forEach(el => el.textContent = Math.round(config.threshold_pass * 100));
+        document.querySelectorAll('.th-review').forEach(el => el.textContent = Math.round(config.threshold_review * 100));
+        document.querySelectorAll('.th-pass-minus').forEach(el => el.textContent = Math.round(config.threshold_pass * 100) - 1);
+        document.querySelectorAll('.th-fail').forEach(el => el.textContent = Math.round(config.threshold_review * 100));
+    }
+    
+    // Load statistics
+    async function loadStats() {
+        try {
+            const response = await fetch('/entity-reviews/stats');
+            const data = await response.json();
+            
+            document.getElementById('statTotal').textContent = data.total_reviews || 0;
+            document.getElementById('statPassed').textContent = data.by_status?.passed || 0;
+            document.getElementById('statNeedsReview').textContent = data.by_status?.needs_review || 0;
+            document.getElementById('statFailed').textContent = data.by_status?.failed || 0;
+            
+            // Update average scores
+            const avg = data.average_scores || {};
+            document.getElementById('avgCongruence').textContent = formatPercent(avg.congruence);
+            document.getElementById('avgCoverage').textContent = formatPercent(avg.coverage);
+            document.getElementById('avgConstraint').textContent = formatPercent(avg.constraint);
+            document.getElementById('avgCompleteness').textContent = formatPercent(avg.completeness);
+            document.getElementById('avgConsistency').textContent = formatPercent(avg.consistency);
+        } catch (error) {
+            console.error('Error loading stats:', error);
+            showToast('Error loading statistics', 'error');
+        }
+    }
+    
+    // Load reviews list
+    async function loadReviews() {
+        const params = new URLSearchParams();
+        params.append('page', currentPage);
+        params.append('page_size', pageSize);
+        
+        const status = document.getElementById('filterStatus').value;
+        const rec = document.getElementById('filterRecommendation').value;
+        const minScore = document.getElementById('filterMinScore').value;
+        const maxScore = document.getElementById('filterMaxScore').value;
+        const type = document.getElementById('filterType').value;
+        
+        if (status) params.append('status', status);
+        if (rec) params.append('recommendation', rec);
+        if (minScore) params.append('min_score', minScore / 100);
+        if (maxScore) params.append('max_score', maxScore / 100);
+        if (type) params.append('entity_type', type);
+        if (sortColumn) {
+            params.append('sort_by', sortColumn);
+            params.append('sort_dir', sortDirection);
+        }
+        
+        try {
+            const response = await fetch(`/entity-reviews/?${params}`);
+            const data = await response.json();
+            
+            allReviews = data.reviews || [];
+            renderReviewsTable(allReviews);
+            document.getElementById('showingCount').textContent = data.reviews?.length || 0;
+            document.getElementById('totalCount').textContent = data.total || 0;
+            
+            renderPagination(data.total, data.page, data.page_size);
+        } catch (error) {
+            console.error('Error loading reviews:', error);
+            showToast('Error loading reviews', 'error');
+        }
+    }
+    
+    // Sort reviews
+    function sortReviews(arr) {
+        if (!sortColumn) return arr;
+        return [...arr].sort((a, b) => {
+            let va, vb;
+            const scoreMap = {
+                congruence: r => r.congruence?.score,
+                coverage: r => r.coverage?.score,
+                constraint: r => r.constraint?.score,
+                completeness: r => r.completeness?.score,
+                consistency: r => r.consistency?.score,
+            };
+            if (scoreMap[sortColumn]) {
+                va = scoreMap[sortColumn](a) ?? -1;
+                vb = scoreMap[sortColumn](b) ?? -1;
+            } else {
+                va = a[sortColumn];
+                vb = b[sortColumn];
+            }
+            if (va == null) va = '';
+            if (vb == null) vb = '';
+            if (typeof va === 'number' && typeof vb === 'number') {
+                return sortDirection === 'asc' ? va - vb : vb - va;
+            }
+            va = String(va).toLowerCase();
+            vb = String(vb).toLowerCase();
+            if (va < vb) return sortDirection === 'asc' ? -1 : 1;
+            if (va > vb) return sortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    // Render reviews table
+    function renderReviewsTable(reviews) {
+        const tbody = document.getElementById('reviewsTable');
+        
+        if (!reviews || reviews.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="10" class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox me-2"></i>No reviews found
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = reviews.map(review => `
+            <tr>
+                <td>
+                    <strong>${escapeHtml(review.entity_text)}</strong>
+                    ${review.pending_entity_id ? `<br><small class="text-muted">ID: ${review.pending_entity_id}</small>` : ''}
+                </td>
+                <td><span class="badge badge-entity entity-${review.entity_type}">${review.entity_type}</span></td>
+                <td>${renderScore(review.congruence?.score)}</td>
+                <td>${renderScore(review.coverage?.score)}</td>
+                <td>${renderScore(review.constraint?.score)}</td>
+                <td>${renderScore(review.completeness?.score)}</td>
+                <td>${renderScore(review.consistency?.score)}</td>
+                <td><strong>${renderScore(review.overall_score)}</strong></td>
+                <td><span class="status-${review.review_status}">${formatStatus(review.review_status)}</span></td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="viewReviewDetail(${review.id})" title="View Details">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="editReviewEntity(${review.id})" title="Modify">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-success" onclick="showAddToKGModal(${review.id}, '${escapeHtml(review.entity_text)}')" title="Add to KG">
+                            <i class="bi bi-plus-circle"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning" onclick="reEvaluateSingle(${review.id})" title="Re-evaluate">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteReview(${review.id})" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    // Render score badge
+    function renderScore(score) {
+        if (score === null || score === undefined) return '-';
+        const pct = Math.round(score * 100);
+        let cls = 'score-poor';
+        if (pct >= 80) cls = 'score-excellent';
+        else if (pct >= 60) cls = 'score-good';
+        else if (pct >= 40) cls = 'score-fair';
+        return `<span class="score-badge ${cls}">${pct}%</span>`;
+    }
+    
+    // Format percentage
+    function formatPercent(val) {
+        if (val === null || val === undefined) return '-';
+        return Math.round(val * 100) + '%';
+    }
+    
+    // Format status
+    function formatStatus(status) {
+        const labels = {
+            'passed': '✓ Passed',
+            'failed': '✗ Failed',
+            'needs_review': '⚠ Review',
+            'pending': '○ Pending'
+        };
+        return labels[status] || status;
+    }
+    
+    // Run quick evaluation
+    async function runQuickEval() {
+        const text = document.getElementById('evalEntityText').value.trim();
+        const type = document.getElementById('evalEntityType').value;
+        const runBert = document.getElementById('evalRunBert').checked;
+        
+        if (!text) {
+            showToast('Please enter entity text', 'warning');
+            return;
+        }
+        
+        try {
+            const params = new URLSearchParams();
+            params.append('entity_text', text);
+            params.append('entity_type', type);
+            params.append('run_bert', runBert);
+            
+            const response = await fetch(`/entity-reviews/evaluate-text?${params}`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                lastEvalResult = data;
+                displayEvalResults(data);
+            } else {
+                showToast('Evaluation failed: ' + (data.error || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            console.error('Error running evaluation:', error);
+            showToast('Error running evaluation', 'error');
+        }
+    }
+    
+    // Display evaluation results
+    function displayEvalResults(data) {
+        document.getElementById('evalResults').style.display = 'block';
+        
+        const eval_data = data.evaluation;
+        const overall = Math.round(eval_data.overall_score * 100);
+        
+        // Update overall score
+        const scoreBadge = document.getElementById('evalOverallScore');
+        scoreBadge.textContent = overall + '%';
+        scoreBadge.className = 'score-badge ' + getScoreClass(overall);
+        
+        document.getElementById('evalStatus').textContent = formatStatus(eval_data.review_status);
+        document.getElementById('evalRecommendation').textContent = eval_data.recommendation || '-';
+        
+        // Update C scores
+        const cScoresHtml = `
+            <div class="col-md-4">
+                <div class="card c-card c-congruence">
+                    <div class="card-body py-2">
+                        <h6 class="card-title mb-1"><i class="bi bi-link-45deg"></i>Congruence</h6>
+                        <div class="d-flex justify-content-between align-items-center">
+                            ${renderScore(eval_data.congruence?.score)}
+                            <small class="text-muted">${eval_data.congruence?.nearest_entity || 'No match'}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card c-card c-coverage">
+                    <div class="card-body py-2">
+                        <h6 class="card-title mb-1"><i class="bi bi-layers"></i>Coverage</h6>
+                        <div class="d-flex justify-content-between align-items-center">
+                            ${renderScore(eval_data.coverage?.score)}
+                            <small class="text-muted">${eval_data.coverage?.is_novel ? 'Novel' : 'Existing'}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card c-card c-constraint">
+                    <div class="card-body py-2">
+                        <h6 class="card-title mb-1"><i class="bi bi-shield-check"></i>Constraint</h6>
+                        <div class="d-flex justify-content-between align-items-center">
+                            ${renderScore(eval_data.constraint?.score)}
+                            <small class="text-muted">${eval_data.constraint?.violations?.length || 0} violations</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card c-card c-completeness">
+                    <div class="card-body py-2">
+                        <h6 class="card-title mb-1"><i class="bi bi-check2-all"></i>Completeness</h6>
+                        <div class="d-flex justify-content-between align-items-center">
+                            ${renderScore(eval_data.completeness?.score)}
+                            <small class="text-muted">${eval_data.completeness?.missing_fields?.length || 0} missing fields</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card c-card c-consistency">
+                    <div class="card-body py-2">
+                        <h6 class="card-title mb-1"><i class="bi bi-arrow-repeat"></i>Consistency</h6>
+                        <div class="d-flex justify-content-between align-items-center">
+                            ${renderScore(eval_data.consistency?.score)}
+                            <small class="text-muted">BERT: ${eval_data.consistency?.bert_agreement === null ? 'N/A' : (eval_data.consistency?.bert_agreement ? '✓' : '✗')}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('evalCScores').innerHTML = cScoresHtml;
+        
+        // Display explanation
+        document.getElementById('evalExplanation').textContent = data.explanation || 'No explanation available';
+    }
+    
+    // Get score class
+    function getScoreClass(pct) {
+        if (pct >= 80) return 'score-excellent';
+        if (pct >= 60) return 'score-good';
+        if (pct >= 40) return 'score-fair';
+        return 'score-poor';
+    }
+    
+    // Save evaluation as review
+    async function saveEvaluation() {
+        if (!lastEvalResult) {
+            showToast('No evaluation to save', 'warning');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/entity-reviews/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    entity_text: lastEvalResult.entity_text,
+                    entity_type: lastEvalResult.entity_type,
+                    run_bert_validation: document.getElementById('evalRunBert').checked
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.id) {
+                showToast('Review saved successfully', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('quickEvalModal')).hide();
+                loadStats();
+                loadReviews();
+            } else {
+                showToast('Failed to save review', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving evaluation:', error);
+            showToast('Error saving evaluation', 'error');
+        }
+    }
+    
+    // View review detail
+    async function viewReviewDetail(reviewId) {
+        currentReviewId = reviewId;
+        
+        try {
+            const response = await fetch(`/entity-reviews/${reviewId}`);
+            const review = await response.json();
+            
+            currentEntityText = review.entity_text;
+            
+            const content = `
+                <div class="row">
+                    <div class="col-md-8">
+                        <h4 class="mb-3">${escapeHtml(review.entity_text)}</h4>
+                        <p class="text-muted">
+                            <span class="badge badge-entity entity-${review.entity_type}">${review.entity_type}</span>
+                            <span class="ms-2">Created: ${new Date(review.created_at).toLocaleString()}</span>
+                        </p>
+                        
+                        <div class="row g-3 mb-4">
+                            ${renderDetailCard('Congruence', review.congruence, 'link-45deg', 'congruence')}
+                            ${renderDetailCard('Coverage', review.coverage, 'layers', 'coverage')}
+                            ${renderDetailCard('Constraint', review.constraint, 'shield-check', 'constraint')}
+                            ${renderDetailCard('Completeness', review.completeness, 'check2-all', 'completeness')}
+                            ${renderDetailCard('Consistency', review.consistency, 'arrow-repeat', 'consistency')}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted mb-2">Overall Score</h6>
+                                <div class="score-badge ${getScoreClass(Math.round(review.overall_score * 100))}" style="font-size: 2rem; width: auto; padding: 12px 24px;">
+                                    ${Math.round(review.overall_score * 100)}%
+                                </div>
+                                <p class="mt-3 mb-1">
+                                    <strong class="status-${review.review_status}">${formatStatus(review.review_status)}</strong>
+                                </p>
+                                <small class="text-muted">Recommendation: ${review.recommendation || '-'}</small>
+                            </div>
+                        </div>
+                        ${review.review_notes ? `
+                            <div class="card mt-3">
+                                <div class="card-body">
+                                    <h6>Notes</h6>
+                                    <p class="mb-0 small">${escapeHtml(review.review_notes)}</p>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('reviewDetailContent').innerHTML = content;
+            new bootstrap.Modal(document.getElementById('reviewDetailModal')).show();
+            
+        } catch (error) {
+            console.error('Error loading review detail:', error);
+            showToast('Error loading review details', 'error');
+        }
+    }
+    
+    // Render detail card
+    function renderDetailCard(name, metrics, icon, type) {
+        if (!metrics) return '';
+        
+        let details = '';
+        switch (type) {
+            case 'congruence':
+                details = metrics.nearest_entity ? `Nearest: ${escapeHtml(metrics.nearest_entity)}` : 'No match found';
+                break;
+            case 'coverage':
+                details = `${metrics.similar_entities_count || 0} similar entities, ${metrics.is_novel ? 'Novel' : 'Existing'}`;
+                break;
+            case 'constraint':
+                if (metrics.violations?.length) {
+                    details = metrics.violations.map(v => `<span class="violation-tag">${escapeHtml(v)}</span>`).join(' ');
+                } else {
+                    details = 'No violations';
+                }
+                break;
+            case 'completeness':
+                if (metrics.missing_fields?.length) {
+                    details = `Missing: ${metrics.missing_fields.join(', ')}`;
+                } else {
+                    details = 'All fields present';
+                }
+                break;
+            case 'consistency':
+                details = `BERT agreement: ${metrics.bert_agreement === null ? 'N/A' : (metrics.bert_agreement ? '✓ Yes' : '✗ No')}`;
+                break;
+        }
+        
+        return `
+            <div class="col-md-6">
+                <div class="card c-card c-${type}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h6 class="card-title"><i class="bi bi-${icon}"></i>${name}</h6>
+                            ${renderScore(metrics.score)}
+                        </div>
+                        <small class="text-muted">${details}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Update review status
+    async function updateReviewStatus(reviewId, status) {
+        try {
+            const response = await fetch(`/entity-reviews/${reviewId}/status?status=${status}`, {
+                method: 'PUT'
+            });
+            
+            if (response.ok) {
+                showToast(`Review marked as ${status}`, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('reviewDetailModal')).hide();
+                loadStats();
+                loadReviews();
+            } else {
+                showToast('Failed to update status', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating status:', error);
+            showToast('Error updating status', 'error');
+        }
+    }
+    
+    // Delete review
+    async function deleteReview(reviewId) {
+        if (!confirm('Are you sure you want to delete this review?')) return;
+        
+        try {
+            const response = await fetch(`/entity-reviews/${reviewId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                showToast('Review deleted', 'success');
+                loadStats();
+                loadReviews();
+            } else {
+                showToast('Failed to delete review', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting review:', error);
+            showToast('Error deleting review', 'error');
+        }
+    }
+    
+    // Add review to Knowledge Graph
+    async function addReviewToKG(reviewId, entityText) {
+        if (!confirm(`Add "${entityText}" to the Knowledge Graph? This will remove it from both Review and Pending lists.`)) return;
+        
+        try {
+            const response = await fetch(`/entity-reviews/${reviewId}/add-to-kg`, {
+                method: 'POST'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast(`Entity added to KG: ${data.entity_uri}`, 'success');
+                // Close modal if open
+                const modal = document.getElementById('reviewDetailModal');
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                if (modalInstance) modalInstance.hide();
+                // Refresh data
+                loadStats();
+                loadReviews();
+            } else {
+                showToast(data.message || 'Failed to add to KG', 'error');
+            }
+        } catch (error) {
+            console.error('Error adding to KG:', error);
+            showToast('Error adding to Knowledge Graph', 'error');
+        }
+    }
+    
+    // Review all pending entities
+    let _bulkCancelled = false;
+    function cancelBulkOperation() { _bulkCancelled = true; }
+    function showProgress(label) {
+        _bulkCancelled = false;
+        document.getElementById('progressLabel').textContent = label;
+        document.getElementById('progressPct').textContent = '0%';
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('progressDetail').textContent = '';
+        document.getElementById('bulkProgress').style.display = 'block';
+    }
+    function updateProgress(current, total, detail) {
+        const pct = Math.round((current / total) * 100);
+        document.getElementById('progressPct').textContent = pct + '%';
+        document.getElementById('progressBar').style.width = pct + '%';
+        if (detail) document.getElementById('progressDetail').textContent = detail;
+    }
+    function hideProgress() {
+        document.getElementById('bulkProgress').style.display = 'none';
+    }
+
+    async function reviewAllPending() {
+        if (!confirm('This will review all pending entities. Continue?')) return;
+        
+        showProgress('Reviewing pending entities...');
+        
+        try {
+            let allPending = [];
+            let p = 1;
+            while (true) {
+                const resp = await fetch(`/pending-entities/?status=pending&has_review=not_reviewed&page=${p}&page_size=200`);
+                const d = await resp.json();
+                if (!d.entities || d.entities.length === 0) break;
+                allPending = allPending.concat(d.entities);
+                if (allPending.length >= d.total) break;
+                p++;
+            }
+            
+            if (allPending.length === 0) {
+                hideProgress();
+                showToast('No pending entities to review', 'warning');
+                return;
+            }
+            
+            let reviewed = 0, skipped = 0, errors = 0;
+            const total = allPending.length;
+            
+            for (let i = 0; i < total; i++) {
+                if (_bulkCancelled) break;
+                const entity = allPending[i];
+                updateProgress(i + 1, total, `${entity.text} (${i+1}/${total})`);
+                try {
+                    const response = await fetch('/entity-reviews/bulk-review', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            entity_ids: [entity.id],
+                            run_bert_validation: true
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        reviewed += data.reviewed || 0;
+                        skipped += data.skipped || 0;
+                        errors += data.errors || 0;
+                    }
+                } catch (e) {
+                    errors++;
+                }
+            }
+            
+            hideProgress();
+            let msg = _bulkCancelled ? 'Cancelled. ' : '';
+            msg += `Reviewed: ${reviewed}`;
+            if (skipped > 0) msg += `, Skipped: ${skipped}`;
+            if (errors > 0) msg += `, Errors: ${errors}`;
+            showToast(msg, reviewed > 0 ? 'success' : 'info');
+            loadStats();
+            loadReviews();
+        } catch (error) {
+            hideProgress();
+            console.error('Error in bulk review:', error);
+            showToast('Error in bulk review', 'error');
+        }
+    }
+    
+    async function reEvaluateAll() {
+        if (!confirm('This will re-evaluate ALL existing reviews with the current configuration. This may update scores and statuses. Continue?')) return;
+        
+        showProgress('Re-evaluating all reviews...');
+        
+        try {
+            let allIds = [];
+            let p = 1;
+            while (true) {
+                const resp = await fetch(`/entity-reviews/?page=${p}&page_size=100`);
+                const d = await resp.json();
+                if (!d.reviews || d.reviews.length === 0) break;
+                allIds = allIds.concat(d.reviews.map(r => r.id));
+                if (allIds.length >= d.total) break;
+                p++;
+            }
+            
+            if (allIds.length === 0) {
+                hideProgress();
+                showToast('No reviews to re-evaluate', 'warning');
+                return;
+            }
+            
+            let updated = 0, errors = 0;
+            const total = allIds.length;
+            
+            for (let i = 0; i < total; i++) {
+                if (_bulkCancelled) break;
+                updateProgress(i + 1, total, `Review ${allIds[i]} (${i+1}/${total})`);
+                try {
+                    const response = await fetch(`/entity-reviews/${allIds[i]}/re-evaluate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ run_bert_validation: true })
+                    });
+                    if (response.ok) updated++;
+                    else errors++;
+                } catch (e) {
+                    errors++;
+                }
+            }
+            
+            hideProgress();
+            let msg = _bulkCancelled ? 'Cancelled. ' : '';
+            msg += `Re-evaluated: ${updated}`;
+            if (errors > 0) msg += `, Errors: ${errors}`;
+            showToast(msg, updated > 0 ? 'success' : 'info');
+            loadStats();
+            loadReviews();
+        } catch (error) {
+            hideProgress();
+            console.error('Error in re-evaluation:', error);
+            showToast('Error in re-evaluation', 'error');
+        }
+    }
+    
+    // Render pagination
+    function renderPagination(total, page, size) {
+        const totalPages = Math.ceil(total / size);
+        const pagination = document.getElementById('pagination');
+        
+        if (totalPages <= 1) {
+            pagination.innerHTML = '';
+            return;
+        }
+        
+        let html = '';
+        
+        html += `<li class="page-item ${page <= 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${page - 1})">«</a>
+        </li>`;
+        
+        for (let i = 1; i <= totalPages; i++) {
+            if (i <= 3 || i > totalPages - 3 || Math.abs(i - page) <= 1) {
+                html += `<li class="page-item ${i === page ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="goToPage(${i})">${i}</a>
+                </li>`;
+            } else if (i === 4 || i === totalPages - 3) {
+                html += `<li class="page-item disabled"><a class="page-link">...</a></li>`;
+            }
+        }
+        
+        html += `<li class="page-item ${page >= totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${page + 1})">»</a>
+        </li>`;
+        
+        pagination.innerHTML = html;
+    }
+    
+    // Go to page
+    function goToPage(page) {
+        currentPage = page;
+        loadReviews();
+    }
+    
+    // Escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Edit review entity
+    async function editReviewEntity(reviewId) {
+        try {
+            const response = await fetch(`/entity-reviews/${reviewId}`);
+            const review = await response.json();
+            
+            currentReviewId = reviewId;
+            currentPendingEntityId = review.pending_entity_id;
+            
+            document.getElementById('editReviewId').value = reviewId;
+            document.getElementById('editPendingEntityId').value = review.pending_entity_id || '';
+            document.getElementById('editEntityText').value = review.entity_text;
+            document.getElementById('editEntityType').value = review.entity_type;
+            document.getElementById('editNormalizedText').value = '';
+            
+            // If there's a pending entity, fetch its normalized text
+            if (review.pending_entity_id) {
+                try {
+                    const pendingResponse = await fetch(`/pending-entities/${review.pending_entity_id}`);
+                    const pending = await pendingResponse.json();
+                    document.getElementById('editNormalizedText').value = pending.normalized_text || '';
+                } catch (e) {
+                    console.log('Could not fetch pending entity details');
+                }
+            }
+            
+            // Close detail modal if open
+            const detailModal = bootstrap.Modal.getInstance(document.getElementById('reviewDetailModal'));
+            if (detailModal) detailModal.hide();
+            
+            editModal.show();
+        } catch (error) {
+            console.error('Error loading review for edit:', error);
+            showToast('Error loading entity', 'error');
+        }
+    }
+    
+    // Save entity edit
+    async function saveEntityEdit() {
+        const reviewId = document.getElementById('editReviewId').value;
+        const pendingEntityId = document.getElementById('editPendingEntityId').value;
+        const newText = document.getElementById('editEntityText').value.trim();
+        const newType = document.getElementById('editEntityType').value;
+        const normalizedText = document.getElementById('editNormalizedText').value.trim();
+        
+        if (!newText) {
+            showToast('Entity text cannot be empty', 'warning');
+            return;
+        }
+        
+        const btn = document.getElementById('saveEditBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Checking...';
+        
+        try {
+            // Check for exact match in KG
+            const checkResponse = await fetch(`/classify/kg/find-similar?text=${encodeURIComponent(newText)}&entity_type=${newType}&min_score=0.98`);
+            const checkData = await checkResponse.json();
+            
+            if (checkData.success && checkData.matches && checkData.matches.length > 0) {
+                const exactMatches = checkData.matches.filter(m => m.similarity_score >= 0.98);
+                if (exactMatches.length > 0) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save Changes';
+                    
+                    const matchList = exactMatches.map(m => `• ${m.label} (${(m.similarity_score * 100).toFixed(0)}%)`).join('\n');
+                    if (!confirm(`Warning: This entity name is very similar to existing KG entities:\n\n${matchList}\n\nDo you still want to save this change?`)) {
+                        return;
+                    }
+                }
+            }
+            
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+            
+            // Update the entity review (this also updates the pending entity)
+            const params = new URLSearchParams();
+            params.append('text', newText);
+            params.append('entity_type', newType);
+            if (normalizedText) {
+                params.append('normalized_text', normalizedText);
+            }
+            
+            const updateResponse = await fetch(`/entity-reviews/${reviewId}?${params.toString()}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!updateResponse.ok) {
+                const errorData = await updateResponse.json();
+                throw new Error(errorData.detail || 'Failed to update entity');
+            }
+            
+            // Re-evaluate the review with new data
+            const reEvalResponse = await fetch(`/entity-reviews/${reviewId}/re-evaluate`, {
+                method: 'POST'
+            });
+            
+            if (reEvalResponse.ok) {
+                showToast('Entity updated and re-evaluated', 'success');
+                editModal.hide();
+                loadReviews();
+                loadStats();
+            } else {
+                showToast('Entity updated but re-evaluation failed', 'warning');
+                editModal.hide();
+                loadReviews();
+            }
+        } catch (error) {
+            console.error('Error saving entity:', error);
+            showToast(error.message || 'Error saving entity', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save Changes';
+        }
+    }
+    
+    // Show Add to KG modal with similar entities search
+    async function showAddToKGModal(reviewId, entityText) {
+        try {
+            const response = await fetch(`/entity-reviews/${reviewId}`);
+            const review = await response.json();
+            
+            currentAddKGReview = review;
+            selectedLinkUri = null;
+            
+            // Populate modal
+            document.getElementById('addKGReviewId').value = reviewId;
+            document.getElementById('addKGEntityText').textContent = review.entity_text;
+            document.getElementById('addKGEntityType').innerHTML = `<span class="badge badge-entity entity-${review.entity_type}">${review.entity_type}</span>`;
+            document.getElementById('addKGReviewScore').textContent = review.overall_score ? `${Math.round(review.overall_score * 100)}%` : '-';
+            
+            // Show loading
+            const loadingSpinner = document.getElementById('loadingSimilar');
+            const similarSection = document.getElementById('similarEntitiesSection');
+            const noSimilarSection = document.getElementById('noSimilarSection');
+            const linkOptions = document.getElementById('linkOptions');
+            const similarList = document.getElementById('similarEntitiesList');
+            
+            loadingSpinner.classList.remove('d-none');
+            noSimilarSection.classList.add('d-none');
+            linkOptions.classList.add('d-none');
+            similarList.innerHTML = '';
+            
+            // Close detail modal if open
+            const detailModal = bootstrap.Modal.getInstance(document.getElementById('reviewDetailModal'));
+            if (detailModal) detailModal.hide();
+            
+            addKGModal.show();
+            
+            // Fetch similar entities
+            try {
+                const searchResponse = await fetch(`/classify/kg/find-similar?text=${encodeURIComponent(review.entity_text)}&entity_type=${review.entity_type}&min_score=0.5`);
+                const data = await searchResponse.json();
+                
+                loadingSpinner.classList.add('d-none');
+                
+                if (data.success && data.matches && data.matches.length > 0) {
+                    similarSection.classList.remove('d-none');
+                    
+                    let listHtml = '<div class="list-group">';
+                    data.matches.forEach((match, idx) => {
+                        const score = (match.similarity_score * 100).toFixed(0);
+                        listHtml += `
+                            <label class="list-group-item list-group-item-action d-flex align-items-center">
+                                <input class="form-check-input me-3 similar-entity-radio" type="radio" 
+                                       name="similarEntity" value="${match.uri}" 
+                                       data-label="${match.label}" ${idx === 0 ? 'checked' : ''}>
+                                <div class="flex-grow-1">
+                                    <strong>${match.label}</strong>
+                                    <small class="d-block text-muted">${score}% match</small>
+                                </div>
+                            </label>
+                        `;
+                    });
+                    listHtml += `
+                        <label class="list-group-item list-group-item-action d-flex align-items-center">
+                            <input class="form-check-input me-3 similar-entity-radio" type="radio" 
+                                   name="similarEntity" value="">
+                            <div class="flex-grow-1">
+                                <strong>Add as new entity</strong>
+                                <small class="d-block text-muted">Don't link to existing entities</small>
+                            </div>
+                        </label>
+                    `;
+                    listHtml += '</div>';
+                    similarList.innerHTML = listHtml;
+                    
+                    // Link option listeners
+                    document.querySelectorAll('.similar-entity-radio').forEach(radio => {
+                        radio.addEventListener('change', function() {
+                            selectedLinkUri = this.value;
+                            if (this.value) {
+                                linkOptions.classList.remove('d-none');
+                            } else {
+                                linkOptions.classList.add('d-none');
+                            }
+                        });
+                    });
+                    
+                    selectedLinkUri = data.matches[0].uri;
+                    linkOptions.classList.remove('d-none');
+                } else {
+                    similarSection.classList.add('d-none');
+                    noSimilarSection.classList.remove('d-none');
+                }
+            } catch (error) {
+                loadingSpinner.classList.add('d-none');
+                similarSection.classList.add('d-none');
+                noSimilarSection.classList.remove('d-none');
+            }
+            
+        } catch (error) {
+            console.error('Error loading review for KG:', error);
+            showToast('Failed to load entity', 'error');
+        }
+    }
+    
+    // Confirm add to KG
+    async function confirmAddToKG() {
+        if (!currentAddKGReview) return;
+        
+        const btn = document.getElementById('confirmAddToKG');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Adding...';
+        
+        try {
+            let url = `/entity-reviews/${currentAddKGReview.id}/add-to-kg`;
+            if (selectedLinkUri) {
+                const linkType = document.querySelector('input[name="linkType"]:checked')?.value || 'closeMatch';
+                url += `?link_to_uri=${encodeURIComponent(selectedLinkUri)}&link_type=${linkType}`;
+            }
+            
+            const response = await fetch(url, { method: 'POST' });
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast('Entity added to Knowledge Graph', 'success');
+                addKGModal.hide();
+                loadStats();
+                loadReviews();
+            } else {
+                showToast(data.message || 'Failed to add to KG', 'error');
+            }
+        } catch (error) {
+            console.error('Error adding to KG:', error);
+            showToast('Error adding to Knowledge Graph', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-plus-lg me-1"></i>Add to Knowledge Graph';
+        }
+    }
+    
+    // Re-evaluate single entity
+    async function reEvaluateSingle(reviewId) {
+        if (!confirm('Re-evaluate this entity with the current configuration?')) return;
+        
+        showToast('Re-evaluating...', 'info');
+        
+        try {
+            const response = await fetch(`/entity-reviews/${reviewId}/re-evaluate`, {
+                method: 'POST'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast(`Re-evaluated: ${Math.round(data.overall_score * 100)}% (${data.new_status})`, 'success');
+                loadStats();
+                loadReviews();
+            } else {
+                showToast('Re-evaluation failed: ' + (data.detail || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            console.error('Error re-evaluating:', error);
+            showToast('Error re-evaluating entity', 'error');
+        }
+    }
+</script>
+{% endblock %}

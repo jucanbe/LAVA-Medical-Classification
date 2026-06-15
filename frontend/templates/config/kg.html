@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+{% block title %}Knowledge Graph - Medical Entity Classifier{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-diagram-3 me-2"></i>Knowledge Graph Configuration</h1>
+    <button class="btn btn-primary" id="reloadKgBtn">
+        <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+        <i class="bi bi-arrow-clockwise me-1"></i>Reload Graph
+    </button>
+</div>
+
+<!-- Statistics -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-primary" id="totalEntities">-</h3>
+                <small class="text-muted">Total Entities</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-success" id="totalLabels">-</h3>
+                <small class="text-muted">Total Labels</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-info" id="totalTypes">-</h3>
+                <small class="text-muted">Entity Types</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 id="kgStatus">-</h3>
+                <small class="text-muted">Status</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <!-- Entities by Type -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-pie-chart me-2"></i>Entities by Type
+            </div>
+            <div class="card-body" id="typeBreakdown">
+                <div class="text-center py-4">
+                    <div class="spinner-border" role="status"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TTL Files Management -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-file-earmark-code me-2"></i>TTL Files</span>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadTTLModal">
+                    <i class="bi bi-upload me-1"></i>Upload TTL
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="ttlFilesList">
+                    <div class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                    </div>
+                </div>
+                <hr>
+                <p class="mb-0 small text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    The Knowledge Graph loads <strong>all .ttl files</strong> from the KnowledgeGraph directory. 
+                    Upload new files or delete existing ones to modify the graph.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <!-- Search Entity -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-search me-2"></i>Search Entity
+            </div>
+            <div class="card-body">
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" id="searchInput" placeholder="Search for an entity...">
+                    <button class="btn btn-outline-secondary" type="button" id="searchBtn">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+                <div id="searchResults"></div>
+            </div>
+        </div>
+
+        <!-- Sample Entities -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-list me-2"></i>Sample Entities
+            </div>
+            <div class="card-body" id="sampleEntities" style="max-height: 300px; overflow-y: auto;">
+                <div class="text-center py-4">
+                    <div class="spinner-border" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload TTL Modal -->
+<div class="modal fade" id="uploadTTLModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Upload TTL File</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadTTLForm">
+                    <div class="mb-3">
+                        <label for="ttlFile" class="form-label">Select TTL File</label>
+                        <input type="file" class="form-control" id="ttlFile" accept=".ttl" required>
+                        <div class="form-text">Only .ttl (Turtle RDF) files are allowed.</div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="reloadAfterUpload" checked>
+                        <label class="form-check-label" for="reloadAfterUpload">
+                            Reload Knowledge Graph after upload
+                        </label>
+                    </div>
+                    <div id="uploadPreview" class="d-none">
+                        <div class="alert alert-info">
+                            <strong>File:</strong> <span id="previewFileName"></span><br>
+                            <strong>Size:</strong> <span id="previewFileSize"></span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmUploadBtn">
+                    <span class="loading-spinner spinner-border spinner-border-sm me-1" role="status"></span>
+                    <i class="bi bi-upload me-1"></i>Upload
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteTTLModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-trash me-2"></i>Delete TTL File</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deleteFileName"></strong>?</p>
+                <p class="text-danger small">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    This action cannot be undone. All entities from this file will be removed from the Knowledge Graph.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <span class="loading-spinner spinner-border spinner-border-sm me-1" role="status"></span>
+                    <i class="bi bi-trash me-1"></i>Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+    const reloadBtn = document.getElementById('reloadKgBtn');
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchResults = document.getElementById('searchResults');
+    const ttlFileInput = document.getElementById('ttlFile');
+    const confirmUploadBtn = document.getElementById('confirmUploadBtn');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    
+    let fileToDelete = null;
+    
+    // Initialize
+    await loadStats();
+    await loadTTLFiles();
+
+    // Reload KG button
+    reloadBtn.addEventListener('click', async function() {
+        reloadBtn.classList.add('loading');
+        reloadBtn.disabled = true;
+        
+        try {
+            await apiCall('/classify/kg/reload', 'POST');
+            showToast('Knowledge Graph reloaded successfully!', 'success');
+            await loadStats();
+            await loadTTLFiles();
+        } catch (error) {
+            showToast('Error reloading: ' + error.message, 'error');
+        } finally {
+            reloadBtn.classList.remove('loading');
+            reloadBtn.disabled = false;
+        }
+    });
+
+    // Search functionality
+    searchBtn.addEventListener('click', performSearch);
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') performSearch();
+    });
+    
+    // File input preview
+    ttlFileInput.addEventListener('change', function() {
+        const file = this.files[0];
+        const preview = document.getElementById('uploadPreview');
+        if (file) {
+            document.getElementById('previewFileName').textContent = file.name;
+            document.getElementById('previewFileSize').textContent = formatFileSize(file.size);
+            preview.classList.remove('d-none');
+        } else {
+            preview.classList.add('d-none');
+        }
+    });
+    
+    // Upload TTL file
+    confirmUploadBtn.addEventListener('click', async function() {
+        const file = ttlFileInput.files[0];
+        if (!file) {
+            showToast('Please select a file', 'error');
+            return;
+        }
+        
+        confirmUploadBtn.classList.add('loading');
+        confirmUploadBtn.disabled = true;
+        
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const reload = document.getElementById('reloadAfterUpload').checked;
+            
+            const response = await fetch(`/classify/kg/upload?reload=${reload}`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.detail || 'Upload failed');
+            }
+            
+            showToast(`File '${file.name}' uploaded successfully! (${result.triples_in_file} triples)`, 'success');
+            
+            // Close modal and refresh
+            bootstrap.Modal.getInstance(document.getElementById('uploadTTLModal')).hide();
+            ttlFileInput.value = '';
+            document.getElementById('uploadPreview').classList.add('d-none');
+            
+            await loadStats();
+            await loadTTLFiles();
+            
+        } catch (error) {
+            showToast('Error uploading file: ' + error.message, 'error');
+        } finally {
+            confirmUploadBtn.classList.remove('loading');
+            confirmUploadBtn.disabled = false;
+        }
+    });
+    
+    // Delete TTL file
+    confirmDeleteBtn.addEventListener('click', async function() {
+        if (!fileToDelete) return;
+        
+        confirmDeleteBtn.classList.add('loading');
+        confirmDeleteBtn.disabled = true;
+        
+        try {
+            await apiCall(`/classify/kg/file/${encodeURIComponent(fileToDelete)}`, 'DELETE');
+            showToast(`File '${fileToDelete}' deleted successfully!`, 'success');
+            
+            // Close modal and refresh
+            bootstrap.Modal.getInstance(document.getElementById('deleteTTLModal')).hide();
+            fileToDelete = null;
+            
+            await loadStats();
+            await loadTTLFiles();
+            
+        } catch (error) {
+            showToast('Error deleting file: ' + error.message, 'error');
+        } finally {
+            confirmDeleteBtn.classList.remove('loading');
+            confirmDeleteBtn.disabled = false;
+        }
+    });
+
+    async function loadStats() {
+        try {
+            const stats = await apiCall('/classify/kg/stats');
+            
+            document.getElementById('totalEntities').textContent = stats.total_entities || 0;
+            document.getElementById('totalLabels').textContent = stats.total_labels || 0;
+            document.getElementById('totalTypes').textContent = Object.keys(stats.entities_by_type || {}).length;
+            document.getElementById('kgStatus').innerHTML = '<span class="text-success">Loaded</span>';
+
+            // Type breakdown
+            const byType = stats.entities_by_type || {};
+            let typeHtml = '';
+            for (const [type, count] of Object.entries(byType)) {
+                const percent = ((count / stats.total_entities) * 100).toFixed(1);
+                typeHtml += `
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span class="badge badge-entity entity-${type}">${type}</span>
+                            <small>${count} entities</small>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar entity-${type}" style="width: ${percent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }
+            document.getElementById('typeBreakdown').innerHTML = typeHtml || '<p class="text-muted">No data</p>';
+
+            // Sample entities
+            if (stats.sample_entities && stats.sample_entities.length > 0) {
+                let sampleHtml = '<div class="d-flex flex-wrap gap-2">';
+                stats.sample_entities.forEach(entity => {
+                    sampleHtml += `<span class="badge badge-entity entity-${entity.type}" title="${entity.type}">${entity.label}</span>`;
+                });
+                sampleHtml += '</div>';
+                document.getElementById('sampleEntities').innerHTML = sampleHtml;
+            } else {
+                document.getElementById('sampleEntities').innerHTML = '<p class="text-muted">No sample entities</p>';
+            }
+
+        } catch (error) {
+            document.getElementById('kgStatus').innerHTML = '<span class="text-danger">Error</span>';
+            showToast('Error loading KG stats: ' + error.message, 'error');
+        }
+    }
+    
+    async function loadTTLFiles() {
+        const container = document.getElementById('ttlFilesList');
+        
+        try {
+            const response = await apiCall('/classify/kg/files');
+            const files = response.files || [];
+            
+            if (files.length === 0) {
+                container.innerHTML = '<p class="text-muted small mb-0">No TTL files found in the directory.</p>';
+                return;
+            }
+            
+            let html = '<div class="list-group list-group-flush">';
+            files.forEach(file => {
+                const loadedBadge = file.loaded 
+                    ? '<span class="badge bg-success ms-2">Loaded</span>' 
+                    : '<span class="badge bg-secondary ms-2">Not loaded</span>';
+                const modifiedDate = new Date(file.modified * 1000).toLocaleDateString();
+                
+                html += `
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <i class="bi bi-file-earmark-code text-primary me-2"></i>
+                            <strong>${file.name}</strong>
+                            ${loadedBadge}
+                            <br>
+                            <small class="text-muted">${formatFileSize(file.size)} • Modified: ${modifiedDate}</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger" onclick="showDeleteModal('${file.name}')" title="Delete file">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+            
+        } catch (error) {
+            container.innerHTML = `<p class="text-danger small mb-0">Error loading files: ${error.message}</p>`;
+        }
+    }
+    
+    // Make showDeleteModal available globally
+    window.showDeleteModal = function(filename) {
+        fileToDelete = filename;
+        document.getElementById('deleteFileName').textContent = filename;
+        new bootstrap.Modal(document.getElementById('deleteTTLModal')).show();
+    };
+
+    async function performSearch() {
+        const query = searchInput.value.trim();
+        if (!query) {
+            searchResults.innerHTML = '';
+            return;
+        }
+
+        searchResults.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm"></div></div>';
+
+        try {
+            // Use the dedicated KG search endpoint
+            const response = await apiCall(`/classify/kg/search?q=${encodeURIComponent(query)}&limit=10`);
+            
+            if (response.results && response.results.length > 0) {
+                let html = '<div class="list-group list-group-flush">';
+                response.results.forEach(entity => {
+                    const similarityBadge = entity.similarity >= 0.9 
+                        ? '<span class="badge bg-success ms-2">Exact</span>' 
+                        : `<span class="badge bg-secondary ms-2">${Math.round(entity.similarity * 100)}%</span>`;
+                    html += `
+                        <div class="list-group-item px-0">
+                            <span class="badge badge-entity entity-${entity.type} me-2">${entity.label}</span>
+                            <small class="text-muted">${entity.type}</small>
+                            ${similarityBadge}
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                searchResults.innerHTML = html;
+            } else {
+                searchResults.innerHTML = '<p class="text-muted small">No matching entities found</p>';
+            }
+        } catch (error) {
+            searchResults.innerHTML = `<p class="text-danger small">Search error: ${error.message}</p>`;
+        }
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+});
+</script>
+<style>
+.progress-bar.entity-disease { background-color: #c62828; }
+.progress-bar.entity-symptom { background-color: #ad1457; }
+.progress-bar.entity-finding { background-color: #1565c0; }
+.progress-bar.entity-organ { background-color: #4e342e; }
+.progress-bar.entity-imaging_procedure { background-color: #7b1fa2; }
+.progress-bar.entity-examination_procedure { background-color: #512da8; }
+.progress-bar.entity-therapeutic_procedure { background-color: #283593; }
+.progress-bar.entity-imaging_result { background-color: #00695c; }
+.progress-bar.entity-examination_measure { background-color: #2e7d32; }
+.progress-bar.entity-parameter { background-color: #558b2f; }
+.progress-bar.entity-score { background-color: #f57f17; }
+.progress-bar.entity-therapy { background-color: #ff8f00; }
+.progress-bar.entity-substance { background-color: #ef6c00; }
+.progress-bar.entity-adverse_event { background-color: #bf360c; }
+</style>
+{% endblock %}

@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}BERT Models - Medical Entity Classifier{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-box me-2"></i>BERT Models</h1>
+    <a href="/app/bert/train" class="btn btn-success">
+        <i class="bi bi-plus-circle me-1"></i>Train New Model
+    </a>
+</div>
+
+<!-- Status Card -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-activity me-2"></i>BERT Service Status
+    </div>
+    <div class="card-body" id="statusContainer">
+        <div class="d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            <span>Checking status...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Entity Models -->
+<div class="card mb-4">
+    <div class="card-header bg-primary bg-opacity-10">
+        <i class="bi bi-journal-text me-2"></i>Entity BERT Models
+        <small class="text-muted ms-2">— NER models for entity extraction</small>
+    </div>
+    <div class="card-body" id="entityModelsContainer">
+        <div class="text-center py-4">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <span class="ms-2 text-muted">Loading entity models...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Relation Models -->
+<div class="card">
+    <div class="card-header bg-success bg-opacity-10">
+        <i class="bi bi-arrow-left-right me-2"></i>Relation BERT Models
+        <small class="text-muted ms-2">— Models for relation extraction</small>
+    </div>
+    <div class="card-body" id="relationModelsContainer">
+        <div class="text-center py-4">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <span class="ms-2 text-muted">Loading relation models...</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+    const statusContainer = document.getElementById('statusContainer');
+    const entityModelsContainer = document.getElementById('entityModelsContainer');
+    const relationModelsContainer = document.getElementById('relationModelsContainer');
+
+    // Load status
+    try {
+        const status = await apiCall('/bert/status');
+        
+        const statusClass = status.transformers_available ? 'text-success' : 'text-warning';
+        const statusIcon = status.transformers_available ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
+        
+        statusContainer.innerHTML = `
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Transformers:</strong>
+                    <span class="${statusClass}">
+                        <i class="bi ${statusIcon} me-1"></i>
+                        ${status.transformers_available ? 'Available' : 'Not Installed'}
+                    </span>
+                </div>
+                <div class="col-md-3">
+                    <strong>Device:</strong> ${status.device || 'N/A'}
+                </div>
+                <div class="col-md-3">
+                    <strong>Loaded Models:</strong> ${status.loaded_models?.length || 0}
+                </div>
+                <div class="col-md-3">
+                    <strong>Default Model:</strong> ${status.default_model || 'None'}
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        statusContainer.innerHTML = `
+            <div class="alert alert-danger mb-0">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Error checking status: ${error.message}
+            </div>
+        `;
+    }
+
+    function renderModelsTable(models, container, emptyLabel, emptyIcon) {
+        if (models.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="bi ${emptyIcon} text-muted" style="font-size: 2.5rem;"></i>
+                    <h6 class="mt-2 text-muted">No ${emptyLabel} Models</h6>
+                    <a href="/app/bert/train" class="btn btn-sm btn-outline-success mt-1">
+                        <i class="bi bi-mortarboard me-1"></i>Train a Model
+                    </a>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '<div class="table-responsive"><table class="table table-hover mb-0">';
+        html += `
+            <thead>
+                <tr>
+                    <th>Model Name</th>
+                    <th>Base Model</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+
+        models.forEach(model => {
+            const createdAt = model.created_at 
+                ? new Date(model.created_at).toLocaleDateString() 
+                : 'Unknown';
+            
+            html += `
+                <tr>
+                    <td>
+                        <strong>${model.name}</strong>
+                        <br><small class="text-muted">${model.path}</small>
+                    </td>
+                    <td><small>${model.base_model || 'Unknown'}</small></td>
+                    <td>${createdAt}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary load-model" data-model="${model.name}">
+                            <i class="bi bi-upload me-1"></i>Load
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger unload-model" data-model="${model.name}">
+                            <i class="bi bi-x-circle me-1"></i>Unload
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+    }
+
+    // Load models by type
+    try {
+        const [entityModels, relationModels] = await Promise.all([
+            apiCall('/bert/models?model_type=entity'),
+            apiCall('/bert/models?model_type=relation')
+        ]);
+
+        renderModelsTable(entityModels, entityModelsContainer, 'Entity', 'bi-journal-text');
+        renderModelsTable(relationModels, relationModelsContainer, 'Relation', 'bi-arrow-left-right');
+
+        // Add event listeners for load/unload buttons
+        document.querySelectorAll('.load-model').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const modelName = this.dataset.model;
+                try {
+                    this.disabled = true;
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                    await apiCall(`/bert/models/${modelName}/load`, 'POST');
+                    showToast(`Model '${modelName}' loaded`, 'success');
+                    location.reload();
+                } catch (error) {
+                    showToast(`Error: ${error.message}`, 'error');
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-upload me-1"></i>Load';
+                }
+            });
+        });
+
+        document.querySelectorAll('.unload-model').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const modelName = this.dataset.model;
+                try {
+                    await apiCall(`/bert/models/${modelName}/unload`, 'POST');
+                    showToast(`Model '${modelName}' unloaded`, 'success');
+                    location.reload();
+                } catch (error) {
+                    showToast(`Error: ${error.message}`, 'error');
+                }
+            });
+        });
+
+    } catch (error) {
+        const errHtml = `
+            <div class="alert alert-danger mb-0">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Error loading models: ${error.message}
+            </div>
+        `;
+        entityModelsContainer.innerHTML = errHtml;
+        relationModelsContainer.innerHTML = errHtml;
+    }
+});
+</script>
+{% endblock %}

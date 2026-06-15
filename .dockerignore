@@ -1,0 +1,27 @@
+# ── Git / dev files ──────────────────────────────────
+.git
+.gitignore
+.env
+.env.example
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# ── Docker files ─────────────────────────────────────
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# ── External data (mounted at runtime) ──────────────
+KnowledgeGraph/
+BERT_models/
+
+# ── Database file (recreated inside container) ──────
+entity_classifier.db
+
+# ── Docs / misc ──────────────────────────────────────
+README.md
+start.bat
+*.md

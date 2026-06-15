@@ -1,0 +1,644 @@
+{% extends "base.html" %}
+
+{% block title %}Entity Configuration - Scorecard Settings{% endblock %}
+
+{% block extra_css %}
+<style>
+    .config-card {
+        border-left: 4px solid;
+        margin-bottom: 1rem;
+    }
+    .config-card.weights { border-left-color: #0d6efd; }
+    .config-card.thresholds { border-left-color: #198754; }
+    .config-card.congruence { border-left-color: #0dcaf0; }
+    .config-card.coverage { border-left-color: #20c997; }
+    .config-card.constraint { border-left-color: #dc3545; }
+    .config-card.completeness { border-left-color: #ffc107; }
+    .config-card.consistency { border-left-color: #6f42c1; }
+    
+    .config-card .card-header {
+        font-weight: 600;
+    }
+    
+    .weight-bar {
+        height: 30px;
+        display: flex;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+    .weight-bar .segment {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .weight-bar .segment.congruence { background-color: #0d6efd; }
+    .weight-bar .segment.coverage { background-color: #198754; }
+    .weight-bar .segment.constraint { background-color: #dc3545; }
+    .weight-bar .segment.completeness { background-color: #ffc107; color: #333; }
+    .weight-bar .segment.consistency { background-color: #6f42c1; }
+    
+    .form-label {
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+    .form-text {
+        font-size: 0.8rem;
+    }
+    
+    .weight-total {
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+    .weight-total.valid { color: #198754; }
+    .weight-total.invalid { color: #dc3545; }
+    
+    .threshold-preview {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    .threshold-preview .zone {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+    }
+    .threshold-preview .zone.pass { background: #d1e7dd; color: #0f5132; }
+    .threshold-preview .zone.review { background: #fff3cd; color: #664d03; }
+    .threshold-preview .zone.fail { background: #f8d7da; color: #842029; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">
+            <i class="bi bi-sliders text-primary me-2"></i>
+            Entity Configuration
+        </h1>
+        <p class="text-muted mb-0">Configure the 5 Cs Scorecard metrics and weights</p>
+    </div>
+    <div>
+        <button class="btn btn-outline-secondary me-2" onclick="loadConfig()">
+            <i class="bi bi-arrow-clockwise"></i> Reload
+        </button>
+        <button class="btn btn-warning me-2" onclick="resetToDefaults()">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset to Defaults
+        </button>
+        <button class="btn btn-primary" onclick="saveConfig()">
+            <i class="bi bi-save"></i> Save Changes
+        </button>
+    </div>
+</div>
+
+<!-- Weight Visualization -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-pie-chart me-2"></i>Weight Distribution
+        <span class="float-end weight-total" id="weightTotal">100%</span>
+    </div>
+    <div class="card-body">
+        <div class="weight-bar" id="weightBar">
+            <div class="segment congruence" style="width: 25%">Cong. 25%</div>
+            <div class="segment coverage" style="width: 15%">Cov. 15%</div>
+            <div class="segment constraint" style="width: 25%">Const. 25%</div>
+            <div class="segment completeness" style="width: 15%">Comp. 15%</div>
+            <div class="segment consistency" style="width: 20%">Cons. 20%</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Left Column: Weights and Thresholds -->
+    <div class="col-md-6">
+        <!-- Weights Card -->
+        <div class="card config-card weights">
+            <div class="card-header bg-transparent">
+                <i class="bi bi-percent me-2"></i>Metric Weights
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label">Congruence</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="weight_congruence" 
+                                   min="0" max="1" step="0.05" value="0.25" onchange="updateWeightBar()">
+                            <span class="input-group-text">×100%</span>
+                        </div>
+                        <div class="form-text">Semantic alignment with KG</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Coverage</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="weight_coverage" 
+                                   min="0" max="1" step="0.05" value="0.15" onchange="updateWeightBar()">
+                            <span class="input-group-text">×100%</span>
+                        </div>
+                        <div class="form-text">Gap-filling assessment</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Constraint</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="weight_constraint" 
+                                   min="0" max="1" step="0.05" value="0.25" onchange="updateWeightBar()">
+                            <span class="input-group-text">×100%</span>
+                        </div>
+                        <div class="form-text">Clinical validity</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Completeness</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="weight_completeness" 
+                                   min="0" max="1" step="0.05" value="0.15" onchange="updateWeightBar()">
+                            <span class="input-group-text">×100%</span>
+                        </div>
+                        <div class="form-text">Required attributes</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Consistency</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="weight_consistency" 
+                                   min="0" max="1" step="0.05" value="0.20" onchange="updateWeightBar()">
+                            <span class="input-group-text">×100%</span>
+                        </div>
+                        <div class="form-text">Cross-validation agreement</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Thresholds Card -->
+        <div class="card config-card thresholds">
+            <div class="card-header bg-transparent">
+                <i class="bi bi-speedometer2 me-2"></i>Status Thresholds
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label">Pass Threshold</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="threshold_pass" 
+                                   min="0" max="1" step="0.05" value="0.75" onchange="updateThresholdPreview()">
+                            <span class="input-group-text">×100%</span>
+                        </div>
+                        <div class="form-text">Score ≥ this = Passed</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Review Threshold</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="threshold_review" 
+                                   min="0" max="1" step="0.05" value="0.50" onchange="updateThresholdPreview()">
+                            <span class="input-group-text">×100%</span>
+                        </div>
+                        <div class="form-text">Score ≥ this = Needs Review</div>
+                    </div>
+                </div>
+                <div class="threshold-preview" id="thresholdPreview">
+                    <div class="zone pass">✓ Passed: ≥75%</div>
+                    <div class="zone review">⚠ Review: 50-74%</div>
+                    <div class="zone fail">✗ Failed: &lt;50%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Metric-specific Settings -->
+    <div class="col-md-6">
+        <!-- Congruence Settings -->
+        <div class="card config-card congruence">
+            <div class="card-header bg-transparent">
+                <i class="bi bi-link-45deg me-2"></i>Congruence Settings
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label">Min Similarity</label>
+                        <input type="number" class="form-control" id="congruence_min_similarity" 
+                               min="0" max="1" step="0.05" value="0.7">
+                        <div class="form-text">Minimum similarity score for a match</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Exact Match Bonus</label>
+                        <input type="number" class="form-control" id="congruence_exact_match_bonus" 
+                               min="0" max="1" step="0.05" value="0.2">
+                        <div class="form-text">Bonus score for exact entity match</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coverage Settings -->
+        <div class="card config-card coverage">
+            <div class="card-header bg-transparent">
+                <i class="bi bi-layers me-2"></i>Coverage Settings
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label">Novelty Threshold</label>
+                        <input type="number" class="form-control" id="coverage_novelty_threshold" 
+                               min="1" max="20" step="1" value="3">
+                        <div class="form-text">Fewer similar entities = novel</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Novelty Bonus</label>
+                        <input type="number" class="form-control" id="coverage_novelty_bonus" 
+                               min="0" max="1" step="0.05" value="0.3">
+                        <div class="form-text">Bonus score for novel entities</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Constraint Settings -->
+        <div class="card config-card constraint">
+            <div class="card-header bg-transparent">
+                <i class="bi bi-shield-check me-2"></i>Constraint Settings
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-4">
+                        <label class="form-label">Min Length</label>
+                        <input type="number" class="form-control" id="constraint_min_length" 
+                               min="1" max="50" step="1" value="2">
+                        <div class="form-text">Min chars</div>
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label">Max Length</label>
+                        <input type="number" class="form-control" id="constraint_max_length" 
+                               min="50" max="500" step="10" value="200">
+                        <div class="form-text">Max chars</div>
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label">Violation Penalty</label>
+                        <input type="number" class="form-control" id="constraint_violation_penalty" 
+                               min="0" max="1" step="0.05" value="0.25">
+                        <div class="form-text">Per violation</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Completeness Settings -->
+        <div class="card config-card completeness">
+            <div class="card-header bg-transparent">
+                <i class="bi bi-check2-all me-2"></i>Completeness Settings
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-8">
+                        <label class="form-label">Required Fields</label>
+                        <input type="text" class="form-control" id="completeness_required_fields" 
+                               value="type,text">
+                        <div class="form-text">Comma-separated: type, text, context, definition</div>
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label">Optional Weight</label>
+                        <input type="number" class="form-control" id="completeness_optional_weight" 
+                               min="0" max="1" step="0.05" value="0.15">
+                        <div class="form-text">Per optional field</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Consistency Settings -->
+        <div class="card config-card consistency">
+            <div class="card-header bg-transparent">
+                <i class="bi bi-arrow-repeat me-2"></i>Consistency Settings
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label">Agreement Bonus</label>
+                        <input type="number" class="form-control" id="consistency_agreement_bonus" 
+                               min="0" max="1" step="0.05" value="0.3">
+                        <div class="form-text">Bonus when LLM & BERT agree</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Base Score</label>
+                        <input type="number" class="form-control" id="consistency_base_score" 
+                               min="0" max="1" step="0.05" value="0.5">
+                        <div class="form-text">Score without cross-validation</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Settings Legend / Documentation -->
+<div class="card mt-4">
+    <div class="card-header bg-light">
+        <i class="bi bi-book me-2"></i>Parameter Documentation
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 15%">Parameter</th>
+                        <th style="width: 30%">Description</th>
+                        <th style="width: 30%">Formula / Usage</th>
+                        <th style="width: 25%">Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Congruence -->
+                    <tr class="table-primary">
+                        <td colspan="4"><strong><i class="bi bi-link-45deg me-1"></i>Congruence (Semantic Alignment)</strong></td>
+                    </tr>
+                    <tr>
+                        <td><code>Min Similarity</code></td>
+                        <td>Minimum similarity threshold to consider an entity as a valid match in the Knowledge Graph.</td>
+                        <td>If <code>similarity ≥ min_similarity</code> → valid match</td>
+                        <td>With <code>0.7</code>: "diabetes mellitus" with 0.85 similarity to "diabetes" → ✓ Match</td>
+                    </tr>
+                    <tr>
+                        <td><code>Exact Match Bonus</code></td>
+                        <td>Extra bonus when the entity exists exactly in the KG.</td>
+                        <td>$score = base\_score + bonus$ if exact match</td>
+                        <td>Base 0.8 + Bonus 0.2 = <strong>1.0</strong> for exact match</td>
+                    </tr>
+                    
+                    <!-- Coverage -->
+                    <tr class="table-success">
+                        <td colspan="4"><strong><i class="bi bi-layers me-1"></i>Coverage (Representativeness)</strong></td>
+                    </tr>
+                    <tr>
+                        <td><code>Novelty Threshold</code></td>
+                        <td>Maximum number of similar entities to consider the new one as "novel" (fills a gap in the KG).</td>
+                        <td>If <code>similar_count < threshold</code> → entity is novel</td>
+                        <td>Threshold=3: If 2 similar entities → ✓ Novel; If 5 → ✗ Not novel</td>
+                    </tr>
+                    <tr>
+                        <td><code>Novelty Bonus</code></td>
+                        <td>Bonus added to Coverage score when the entity is novel (fills a gap in the KG).</td>
+                        <td>$score_{coverage} = 0.5 + novelty\_bonus$ if novel</td>
+                        <td>Base 0.5 + Bonus 0.3 = <strong>0.8</strong> for novel entity</td>
+                    </tr>
+                    
+                    <!-- Constraint -->
+                    <tr class="table-danger">
+                        <td colspan="4"><strong><i class="bi bi-shield-check me-1"></i>Constraint (Clinical Validity)</strong></td>
+                    </tr>
+                    <tr>
+                        <td><code>Min/Max Length</code></td>
+                        <td>Valid character range for entity text length.</td>
+                        <td><code>min ≤ len(entity_text) ≤ max</code></td>
+                        <td>Min=2, Max=200: "T2DM" (4 chars) → ✓ Valid</td>
+                    </tr>
+                    <tr>
+                        <td><code>Violation Penalty</code></td>
+                        <td>Score penalty for each constraint violation detected.</td>
+                        <td>$score = 1.0 - (n_{violations} \times penalty)$</td>
+                        <td>2 violations × 0.25 = -0.5 → Final score: <strong>0.5</strong></td>
+                    </tr>
+                    
+                    <!-- Completeness -->
+                    <tr class="table-warning">
+                        <td colspan="4"><strong><i class="bi bi-check2-all me-1"></i>Completeness (Required Attributes)</strong></td>
+                    </tr>
+                    <tr>
+                        <td><code>Required Fields</code></td>
+                        <td>List of mandatory fields the entity must have to be considered complete. Possible values: <code>type</code>, <code>text</code>, <code>context</code>, <code>definition</code>, <code>normalized_form</code>, <code>confidence</code>.</td>
+                        <td>
+                            $score_{required} = \frac{fields\_present}{total\_required}$<br>
+                            <small>Weight: 70% of total Completeness score</small>
+                        </td>
+                        <td>
+                            Required="type,text,context"<br>
+                            Entity has: type ✓, text ✓, context ✗<br>
+                            Required score: 2/3 = <strong>0.67</strong>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><code>Optional Weight</code></td>
+                        <td>Relative weight of optional fields (not listed in Required) in the Completeness score calculation.</td>
+                        <td>
+                            $score_{total} = (score_{req} \times 0.7) + (score_{opt} \times opt\_weight)$<br>
+                            <small>Where $opt\_weight$ is the configured value (default 0.30)</small>
+                        </td>
+                        <td>
+                            Score_req=0.67, Score_opt=1.0, Opt_weight=0.30<br>
+                            Total: (0.67×0.7) + (1.0×0.3) = <strong>0.77</strong>
+                        </td>
+                    </tr>
+                    
+                    <!-- Consistency -->
+                    <tr class="table-info">
+                        <td colspan="4"><strong><i class="bi bi-arrow-repeat me-1"></i>Consistency (Type Coherence)</strong></td>
+                    </tr>
+                    <tr>
+                        <td><code>Agreement Bonus</code></td>
+                        <td>Bonus when the LLM classifier and BERT classifier agree on the entity type. Indicates higher classification confidence.</td>
+                        <td>
+                            $score = confidence + agreement\_bonus$ if LLM = BERT<br>
+                            $score = confidence - (bonus \times 0.75)$ if LLM ≠ BERT
+                        </td>
+                        <td>
+                            LLM: "disease", BERT: "disease" → Agreement ✓<br>
+                            Confidence 0.7 + Bonus 0.3 = <strong>1.0</strong>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><code>Base Score</code></td>
+                        <td>Default consistency score when confidence is not available or cross-validation was not executed.</td>
+                        <td>$score_{initial} = confidence \text{ or } base\_score$</td>
+                        <td>Without confidence → uses Base Score <strong>0.5</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Overall Formula -->
+        <div class="alert alert-secondary mt-3">
+            <h6><i class="bi bi-calculator me-2"></i>Overall Score Formula</h6>
+            <p class="mb-2">The final entity score is calculated as the weighted sum of the 5 metrics:</p>
+            <div class="text-center mb-3" style="font-size: 1.1rem;">
+                $Score_{total} = \sum_{i=1}^{5} (score_i \times weight_i)$
+            </div>
+            <p class="mb-1">Expanded:</p>
+            <code style="font-size: 0.9rem;">
+                Score = (Congruence × W₁) + (Coverage × W₂) + (Constraint × W₃) + (Completeness × W₄) + (Consistency × W₅)
+            </code>
+            <hr>
+            <p class="mb-1"><strong>Example with default weights:</strong></p>
+            <small>
+                An entity with scores: Congruence=0.85, Coverage=0.80, Constraint=0.90, Completeness=0.75, Consistency=0.95<br>
+                Score = (0.85×0.25) + (0.80×0.15) + (0.90×0.25) + (0.75×0.15) + (0.95×0.20)<br>
+                Score = 0.2125 + 0.12 + 0.225 + 0.1125 + 0.19 = <strong>0.86 (86%)</strong> → ✓ Passed
+            </small>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Load config on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadConfig();
+    });
+    
+    // Load configuration from API
+    async function loadConfig() {
+        try {
+            const response = await fetch('/entity-config/');
+            const data = await response.json();
+            
+            if (data.success) {
+                const config = data.config;
+                
+                // Populate all fields
+                document.getElementById('weight_congruence').value = config.weight_congruence;
+                document.getElementById('weight_coverage').value = config.weight_coverage;
+                document.getElementById('weight_constraint').value = config.weight_constraint;
+                document.getElementById('weight_completeness').value = config.weight_completeness;
+                document.getElementById('weight_consistency').value = config.weight_consistency;
+                
+                document.getElementById('threshold_pass').value = config.threshold_pass;
+                document.getElementById('threshold_review').value = config.threshold_review;
+                
+                document.getElementById('congruence_min_similarity').value = config.congruence_min_similarity;
+                document.getElementById('congruence_exact_match_bonus').value = config.congruence_exact_match_bonus;
+                
+                document.getElementById('coverage_novelty_threshold').value = config.coverage_novelty_threshold;
+                document.getElementById('coverage_novelty_bonus').value = config.coverage_novelty_bonus;
+                
+                document.getElementById('constraint_min_length').value = config.constraint_min_length;
+                document.getElementById('constraint_max_length').value = config.constraint_max_length;
+                document.getElementById('constraint_violation_penalty').value = config.constraint_violation_penalty;
+                
+                document.getElementById('completeness_required_fields').value = config.completeness_required_fields;
+                document.getElementById('completeness_optional_weight').value = config.completeness_optional_weight;
+                
+                document.getElementById('consistency_agreement_bonus').value = config.consistency_agreement_bonus;
+                document.getElementById('consistency_base_score').value = config.consistency_base_score;
+                
+                updateWeightBar();
+                updateThresholdPreview();
+                
+                showToast('Configuration loaded', 'success');
+            }
+        } catch (error) {
+            console.error('Error loading config:', error);
+            showToast('Error loading configuration', 'error');
+        }
+    }
+    
+    // Save configuration
+    async function saveConfig() {
+        const params = new URLSearchParams();
+        
+        params.append('weight_congruence', document.getElementById('weight_congruence').value);
+        params.append('weight_coverage', document.getElementById('weight_coverage').value);
+        params.append('weight_constraint', document.getElementById('weight_constraint').value);
+        params.append('weight_completeness', document.getElementById('weight_completeness').value);
+        params.append('weight_consistency', document.getElementById('weight_consistency').value);
+        
+        params.append('threshold_pass', document.getElementById('threshold_pass').value);
+        params.append('threshold_review', document.getElementById('threshold_review').value);
+        
+        params.append('congruence_min_similarity', document.getElementById('congruence_min_similarity').value);
+        params.append('congruence_exact_match_bonus', document.getElementById('congruence_exact_match_bonus').value);
+        
+        params.append('coverage_novelty_threshold', document.getElementById('coverage_novelty_threshold').value);
+        params.append('coverage_novelty_bonus', document.getElementById('coverage_novelty_bonus').value);
+        
+        params.append('constraint_min_length', document.getElementById('constraint_min_length').value);
+        params.append('constraint_max_length', document.getElementById('constraint_max_length').value);
+        params.append('constraint_violation_penalty', document.getElementById('constraint_violation_penalty').value);
+        
+        params.append('completeness_required_fields', document.getElementById('completeness_required_fields').value);
+        params.append('completeness_optional_weight', document.getElementById('completeness_optional_weight').value);
+        
+        params.append('consistency_agreement_bonus', document.getElementById('consistency_agreement_bonus').value);
+        params.append('consistency_base_score', document.getElementById('consistency_base_score').value);
+        
+        try {
+            const response = await fetch(`/entity-config/?${params}`, {
+                method: 'PUT'
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast('Configuration saved successfully', 'success');
+            } else {
+                showToast(data.detail || 'Error saving configuration', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving config:', error);
+            showToast('Error saving configuration', 'error');
+        }
+    }
+    
+    // Reset to defaults
+    async function resetToDefaults() {
+        if (!confirm('Reset all settings to default values?')) return;
+        
+        try {
+            const response = await fetch('/entity-config/reset', {
+                method: 'POST'
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                loadConfig();
+                showToast('Configuration reset to defaults', 'success');
+            } else {
+                showToast('Error resetting configuration', 'error');
+            }
+        } catch (error) {
+            console.error('Error resetting config:', error);
+            showToast('Error resetting configuration', 'error');
+        }
+    }
+    
+    // Update weight visualization bar
+    function updateWeightBar() {
+        const congruence = parseFloat(document.getElementById('weight_congruence').value) || 0;
+        const coverage = parseFloat(document.getElementById('weight_coverage').value) || 0;
+        const constraint = parseFloat(document.getElementById('weight_constraint').value) || 0;
+        const completeness = parseFloat(document.getElementById('weight_completeness').value) || 0;
+        const consistency = parseFloat(document.getElementById('weight_consistency').value) || 0;
+        
+        const total = congruence + coverage + constraint + completeness + consistency;
+        const totalPct = Math.round(total * 100);
+        
+        // Update total display
+        const totalEl = document.getElementById('weightTotal');
+        totalEl.textContent = totalPct + '%';
+        totalEl.className = 'float-end weight-total ' + (Math.abs(total - 1.0) < 0.01 ? 'valid' : 'invalid');
+        
+        // Update bar segments
+        const bar = document.getElementById('weightBar');
+        bar.innerHTML = `
+            <div class="segment congruence" style="width: ${congruence * 100}%">Cong. ${Math.round(congruence * 100)}%</div>
+            <div class="segment coverage" style="width: ${coverage * 100}%">Cov. ${Math.round(coverage * 100)}%</div>
+            <div class="segment constraint" style="width: ${constraint * 100}%">Const. ${Math.round(constraint * 100)}%</div>
+            <div class="segment completeness" style="width: ${completeness * 100}%">Comp. ${Math.round(completeness * 100)}%</div>
+            <div class="segment consistency" style="width: ${consistency * 100}%">Cons. ${Math.round(consistency * 100)}%</div>
+        `;
+    }
+    
+    // Update threshold preview
+    function updateThresholdPreview() {
+        const pass = parseFloat(document.getElementById('threshold_pass').value) || 0.75;
+        const review = parseFloat(document.getElementById('threshold_review').value) || 0.50;
+        
+        const passPct = Math.round(pass * 100);
+        const reviewPct = Math.round(review * 100);
+        
+        document.getElementById('thresholdPreview').innerHTML = `
+            <div class="zone pass">✓ Passed: ≥${passPct}%</div>
+            <div class="zone review">⚠ Review: ${reviewPct}-${passPct - 1}%</div>
+            <div class="zone fail">✗ Failed: <${reviewPct}%</div>
+        `;
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    container_name: entity-classifier
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./KnowledgeGraph:/app/KnowledgeGraph
+      - ./BERT_models:/app/BERT_models
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/entity_classifier.db
+      - DEFAULT_VLLM_BASE_URL=http://host.docker.internal:1234/v1
+      - DEFAULT_MODEL_NAME=meta-llama-3.1-8b-instruct
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block title %}LLM Relation Classification - Medical Entity Classifier{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-arrow-left-right me-2"></i>LLM Relation Classification</h1>
+</div>
+
+<!-- LLM Configuration Selector -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-server me-2"></i>LLM Configuration
+    </div>
+    <div class="card-body">
+        <div class="row align-items-end">
+            <div class="col-md-8">
+                <label for="configSelect" class="form-label">Select LLM Server</label>
+                <select class="form-select" id="configSelect">
+                    <option value="">Loading configurations...</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <a href="/app/config/llm" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-gear me-1"></i>Manage Configs
+                </a>
+            </div>
+        </div>
+        <div id="configStatus" class="mt-2"></div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="relationClassifyForm">
+                    <div class="mb-3">
+                        <label for="relationText" class="form-label">Medical Text</label>
+                        <textarea class="form-control" id="relationText" rows="8" 
+                            placeholder="Enter medical text to extract relations..."></textarea>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary" id="relationClassifyBtn">
+                            <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                            <i class="bi bi-arrow-left-right me-1"></i>Classify Relations
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Supported relation types -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>Supported Relation Types
+            </div>
+            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                <div class="list-group list-group-flush small">
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-primary me-2">has_symptom</span> Disease → Symptom</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-primary me-2">has_finding</span> Disease → Finding</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-info me-2">suggests</span> Finding → Disease</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-secondary me-2">located_in</span> Entity → Location</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-success me-2">indicated_for</span> Procedure → Condition</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-success me-2">produces_result</span> Procedure → Result</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-warning text-dark me-2">treats</span> Substance → Disease</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-warning text-dark me-2">first_line_for</span> Substance → Disease</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-danger me-2">contraindicated_in</span> Substance → Condition</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-danger me-2">rules_out</span> Finding → Disease</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-dark me-2">assesses</span> Tool → Disease</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-dark me-2">affects</span> Disease → Organ</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-arrow-left-right me-2"></i>Relation Results</span>
+                <span id="relationResultStats" class="badge bg-secondary d-none"></span>
+            </div>
+            <div class="card-body" id="relationResultsContainer" style="max-height: 600px; overflow-y: auto;">
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-arrow-left-right" style="font-size: 3rem;"></i>
+                    <p class="mt-3">Enter text to extract medical relations</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+    const configSelect = document.getElementById('configSelect');
+    const configStatus = document.getElementById('configStatus');
+    const relationForm = document.getElementById('relationClassifyForm');
+    const relationTextArea = document.getElementById('relationText');
+    const relationResultsContainer = document.getElementById('relationResultsContainer');
+    const relationResultStats = document.getElementById('relationResultStats');
+    const relationClassifyBtn = document.getElementById('relationClassifyBtn');
+
+    // Load LLM configurations
+    try {
+        const configs = await apiCall('/llm-config/');
+        if (configs.length === 0) {
+            configSelect.innerHTML = '<option value="">No configurations available</option>';
+            configStatus.innerHTML = '<small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Please create an LLM configuration first</small>';
+        } else {
+            configSelect.innerHTML = configs.map(c => 
+                `<option value="${c.id}" ${c.is_default ? 'selected' : ''}>${c.name} (${c.model_name}) ${c.is_default ? '★' : ''}</option>`
+            ).join('');
+            
+            const selected = configs.find(c => c.is_default) || configs[0];
+            configStatus.innerHTML = `<small class="text-muted"><i class="bi bi-check-circle text-success me-1"></i>Server: ${selected.base_url} | Model: ${selected.model_name}</small>`;
+        }
+    } catch (error) {
+        configSelect.innerHTML = '<option value="">Error loading configurations</option>';
+        configStatus.innerHTML = `<small class="text-danger"><i class="bi bi-x-circle me-1"></i>${error.message}</small>`;
+    }
+
+    configSelect.addEventListener('change', async function() {
+        const configId = this.value;
+        if (!configId) return;
+        try {
+            const configs = await apiCall('/llm-config/');
+            const selected = configs.find(c => c.id == configId);
+            if (selected) {
+                configStatus.innerHTML = `<small class="text-muted"><i class="bi bi-check-circle text-success me-1"></i>Server: ${selected.base_url} | Model: ${selected.model_name}</small>`;
+            }
+        } catch (error) {}
+    });
+
+    // Relation classification
+    relationForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const text = relationTextArea.value.trim();
+        if (!text) {
+            showToast('Please enter medical text', 'warning');
+            return;
+        }
+        
+        const configId = configSelect.value;
+        if (!configId) {
+            showToast('Please select an LLM configuration', 'warning');
+            return;
+        }
+        
+        relationClassifyBtn.classList.add('loading');
+        relationClassifyBtn.disabled = true;
+        
+        try {
+            const response = await apiCall('/relations/classify', 'POST', {
+                text: text,
+                config_id: parseInt(configId),
+                min_confidence: 0.5
+            });
+            
+            if (response.success && response.result) {
+                displayRelationResults(response);
+            } else {
+                relationResultsContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>${response.error || 'Classification failed'}
+                    </div>`;
+            }
+        } catch (error) {
+            relationResultsContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>${error.message}
+                </div>`;
+        } finally {
+            relationClassifyBtn.classList.remove('loading');
+            relationClassifyBtn.disabled = false;
+        }
+    });
+
+    function getRelationBadgeClass(relType) {
+        const classes = {
+            'has_symptom': 'bg-primary',
+            'has_finding': 'bg-primary',
+            'suggests': 'bg-info',
+            'located_in': 'bg-secondary',
+            'indicated_for': 'bg-success',
+            'produces_result': 'bg-success',
+            'treats': 'bg-warning text-dark',
+            'first_line_for': 'bg-warning text-dark',
+            'contraindicated_in': 'bg-danger',
+            'rules_out': 'bg-danger',
+            'assesses': 'bg-dark',
+            'affects': 'bg-dark'
+        };
+        return classes[relType] || 'bg-secondary';
+    }
+
+    function displayRelationResults(response) {
+        const relations = response.result.relations;
+        const modelUsed = response.model_used || 'Unknown';
+        const relationsSaved = response.relations_saved || 0;
+
+        if (relations.length === 0) {
+            relationResultsContainer.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>No medical relations found.
+                </div>`;
+            return;
+        }
+
+        // Deduplicate
+        const seen = new Set();
+        const uniqueRelations = relations.filter(rel => {
+            const key = `${rel.source_entity}_${rel.relation_type}_${rel.target_entity}`.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        relationResultStats.textContent = `${uniqueRelations.length} relations`;
+        relationResultStats.classList.remove('d-none');
+
+        let html = `
+            <div class="mb-3">
+                <small class="text-muted">Model: ${modelUsed} | Found ${uniqueRelations.length} relations</small>
+                ${relationsSaved > 0 ? `<span class="badge bg-success ms-2"><i class="bi bi-check-circle me-1"></i>${relationsSaved} saved to pending</span>` : ''}
+            </div>
+        `;
+
+        // Group by relation type
+        const grouped = {};
+        uniqueRelations.forEach(rel => {
+            if (!grouped[rel.relation_type]) grouped[rel.relation_type] = [];
+            grouped[rel.relation_type].push(rel);
+        });
+
+        for (const [relType, items] of Object.entries(grouped)) {
+            const badgeClass = getRelationBadgeClass(relType);
+            html += `
+                <div class="mb-3">
+                    <h6 class="mb-2">
+                        <span class="badge ${badgeClass}">${relType}</span>
+                        <span class="text-muted ms-2">(${items.length})</span>
+                    </h6>
+            `;
+            
+            items.forEach(rel => {
+                const confidence = Math.round((rel.confidence || 0) * 100);
+                html += `
+                    <div class="card mb-2 border-start border-3" style="border-left-color: var(--bs-primary) !important;">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center flex-wrap gap-2">
+                                    <span class="badge bg-light text-dark border">${rel.source_entity}</span>
+                                    <small class="text-muted">(${rel.source_type})</small>
+                                    <i class="bi bi-arrow-right text-primary"></i>
+                                    <span class="badge ${badgeClass}">${rel.relation_type}</span>
+                                    <i class="bi bi-arrow-right text-primary"></i>
+                                    <span class="badge bg-light text-dark border">${rel.target_entity}</span>
+                                    <small class="text-muted">(${rel.target_type})</small>
+                                </div>
+                                <span class="badge bg-light text-dark">${confidence}%</span>
+                            </div>
+                            ${rel.context ? `<small class="text-muted d-block mt-1"><i class="bi bi-quote me-1"></i>${rel.context}</small>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+        }
+
+        relationResultsContainer.innerHTML = html;
+
+        if (relationsSaved > 0) {
+            showToast(`${uniqueRelations.length} relations found, ${relationsSaved} new saved to pending`, 'success');
+        }
+    }
+});
+</script>
+{% endblock %}

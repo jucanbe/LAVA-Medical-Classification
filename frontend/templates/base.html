@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Medical Entity Classifier{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+            --sidebar-width: 250px;
+            --sidebar-collapsed-width: 0px;
+            --navbar-height: 56px;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Fixed Navbar */
+        .navbar {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            height: var(--navbar-height);
+        }
+        
+        /* Sidebar Toggle Button */
+        .sidebar-toggle {
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.8);
+            padding: 8px 12px;
+            margin-right: 10px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        .sidebar-toggle:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        
+        /* Fixed Sidebar */
+        .sidebar {
+            position: fixed;
+            top: var(--navbar-height);
+            left: 0;
+            bottom: 0;
+            width: var(--sidebar-width);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 1020;
+            transition: transform 0.3s ease, width 0.3s ease;
+        }
+        .sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 10px 16px;
+            border-radius: 8px;
+            margin: 2px 12px;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+        .sidebar .nav-link:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .sidebar .nav-link.active {
+            background: var(--primary-color);
+            color: #fff;
+        }
+        .sidebar .nav-link i {
+            margin-right: 10px;
+            width: 18px;
+            text-align: center;
+        }
+        
+        /* Sidebar Section Headers - Collapsible */
+        .sidebar-section {
+            padding: 12px 16px 8px;
+            color: rgba(255,255,255,0.5);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+            margin: 0 8px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        .sidebar-section:hover {
+            background: rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.8);
+        }
+        .sidebar-section .collapse-icon {
+            transition: transform 0.2s ease;
+            font-size: 0.65rem;
+        }
+        .sidebar-section.collapsed .collapse-icon {
+            transform: rotate(-90deg);
+        }
+        .sidebar-section-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            max-height: 500px;
+        }
+        .sidebar-section-content.collapsed {
+            max-height: 0;
+        }
+        
+        /* Main Content */
+        .main-wrapper {
+            margin-top: var(--navbar-height);
+            margin-left: var(--sidebar-width);
+            transition: margin-left 0.3s ease;
+            min-height: calc(100vh - var(--navbar-height));
+        }
+        .main-wrapper.sidebar-collapsed {
+            margin-left: 0;
+        }
+        .main-content {
+            background-color: #f8f9fa;
+            min-height: calc(100vh - var(--navbar-height) - 50px);
+            padding: 20px;
+        }
+        
+        /* Cards and Components */
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        }
+        .card-header {
+            background: transparent;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            font-weight: 600;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #0b5ed7 0%, #0a58ca 100%);
+        }
+        .form-control, .form-select {
+            border-radius: 8px;
+            padding: 10px 16px;
+            border: 1px solid #dee2e6;
+        }
+        .form-control:focus, .form-select:focus {
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+        }
+        .badge-entity {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        .entity-disease { background-color: #ffebee; color: #c62828; }
+        .entity-symptom { background-color: #fce4ec; color: #ad1457; }
+        .entity-finding { background-color: #e3f2fd; color: #1565c0; }
+        .entity-organ { background-color: #efebe9; color: #4e342e; }
+        .entity-imaging_procedure { background-color: #f3e5f5; color: #7b1fa2; }
+        .entity-examination_procedure { background-color: #ede7f6; color: #512da8; }
+        .entity-therapeutic_procedure { background-color: #e8eaf6; color: #283593; }
+        .entity-imaging_result { background-color: #e0f2f1; color: #00695c; }
+        .entity-examination_measure { background-color: #e8f5e9; color: #2e7d32; }
+        .entity-parameter { background-color: #f1f8e9; color: #558b2f; }
+        .entity-score { background-color: #fffde7; color: #f57f17; }
+        .entity-therapy { background-color: #fff8e1; color: #ff8f00; }
+        .entity-substance { background-color: #fff3e0; color: #ef6c00; }
+        .entity-adverse_event { background-color: #fbe9e7; color: #bf360c; }
+        
+        .result-container {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .loading-spinner {
+            display: none;
+        }
+        .loading .loading-spinner {
+            display: inline-block;
+        }
+        .toast-container {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 1100;
+        }
+        pre {
+            background: #1a1a2e;
+            color: #e9ecef;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        footer {
+            background: #1a1a2e;
+            color: rgba(255,255,255,0.6);
+            padding: 15px 0;
+            margin-top: auto;
+        }
+        
+        /* Scrollbar styling for sidebar */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+        }
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+        }
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.mobile-show {
+                transform: translateX(0);
+            }
+            .main-wrapper {
+                margin-left: 0;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Fixed Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar">
+                <i class="bi bi-list fs-5"></i>
+            </button>
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-heart-pulse me-2"></i>
+                Medical Entity Classifier
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'docs' %}active{% endif %}" href="/app/docs">
+                            <i class="bi bi-book"></i> Documentation
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/docs" target="_blank">
+                            <i class="bi bi-file-code"></i> API Docs
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/health">
+                            <i class="bi bi-heart-pulse"></i> Health
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Fixed Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="pt-3 pb-3">
+            <!-- LLM Classification Section -->
+            <div class="sidebar-section" data-section="llm">
+                <span><i class="bi bi-chat-dots me-2"></i>LLM Classification</span>
+                <i class="bi bi-chevron-down collapse-icon"></i>
+            </div>
+            <div class="sidebar-section-content" id="section-llm">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'llm-classify' %}active{% endif %}" href="/app/llm/classify">
+                            <i class="bi bi-chat-text"></i> Entity Classification
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'llm-relations' %}active{% endif %}" href="/app/llm/relations">
+                            <i class="bi bi-arrow-left-right"></i> Relation Classification
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'llm-classify-all' %}active{% endif %}" href="/app/llm/classify-all">
+                            <i class="bi bi-stars"></i> Classify All
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'llm-export' %}active{% endif %}" href="/app/llm/export">
+                            <i class="bi bi-download"></i> Export IOB
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- BERT Classification Section -->
+            <div class="sidebar-section" data-section="bert">
+                <span><i class="bi bi-cpu me-2"></i>BERT Classification</span>
+                <i class="bi bi-chevron-down collapse-icon"></i>
+            </div>
+            <div class="sidebar-section-content" id="section-bert">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'bert-classify' %}active{% endif %}" href="/app/bert/classify">
+                            <i class="bi bi-cpu"></i> Entity Classification
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'bert-relations' %}active{% endif %}" href="/app/bert/relations">
+                            <i class="bi bi-arrow-left-right"></i> Relation Classification
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'bert-train' %}active{% endif %}" href="/app/bert/train">
+                            <i class="bi bi-mortarboard"></i> Train Model
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'bert-models' %}active{% endif %}" href="/app/bert/models">
+                            <i class="bi bi-box"></i> Manage Models
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Entities Section -->
+            <div class="sidebar-section" data-section="entities">
+                <span><i class="bi bi-journal-text me-2"></i>Entities</span>
+                <i class="bi bi-chevron-down collapse-icon"></i>
+            </div>
+            <div class="sidebar-section-content" id="section-entities">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'entities-pending' %}active{% endif %}" href="/app/entities/pending">
+                            <i class="bi bi-journal-plus"></i> Pending Entities
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'entities-review' %}active{% endif %}" href="/app/entities/review">
+                            <i class="bi bi-clipboard2-check"></i> Entity Review
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Relations Section -->
+            <div class="sidebar-section" data-section="relations">
+                <span><i class="bi bi-arrow-left-right me-2"></i>Relations</span>
+                <i class="bi bi-chevron-down collapse-icon"></i>
+            </div>
+            <div class="sidebar-section-content" id="section-relations">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'relations-pending' %}active{% endif %}" href="/app/relations/pending">
+                            <i class="bi bi-journal-plus"></i> Pending Relations
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'relations-review' %}active{% endif %}" href="/app/relations/review">
+                            <i class="bi bi-clipboard2-check"></i> Relation Review
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Knowledge Graph Section -->
+            <div class="sidebar-section" data-section="kg">
+                <span><i class="bi bi-diagram-3 me-2"></i>Knowledge Graph</span>
+                <i class="bi bi-chevron-down collapse-icon"></i>
+            </div>
+            <div class="sidebar-section-content" id="section-kg">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'kg-overview' %}active{% endif %}" href="/app/kg/overview">
+                            <i class="bi bi-pie-chart"></i> KG Overview
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'kg-sparql' %}active{% endif %}" href="/app/kg/sparql">
+                            <i class="bi bi-terminal"></i> SPARQL Query
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Configuration Section -->
+            <div class="sidebar-section" data-section="config">
+                <span><i class="bi bi-gear me-2"></i>Configuration</span>
+                <i class="bi bi-chevron-down collapse-icon"></i>
+            </div>
+            <div class="sidebar-section-content" id="section-config">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'config-llm' %}active{% endif %}" href="/app/config/llm">
+                            <i class="bi bi-server"></i> LLM Servers
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'config-triplestore' %}active{% endif %}" href="/app/config/triple-store">
+                            <i class="bi bi-database"></i> Triple Store
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'config-entity' %}active{% endif %}" href="/app/config/entity">
+                            <i class="bi bi-sliders"></i> Entity Configuration
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'config-relation' %}active{% endif %}" href="/app/config/relation">
+                            <i class="bi bi-sliders"></i> Relation Configuration
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'config-status' %}active{% endif %}" href="/app/config/status">
+                            <i class="bi bi-activity"></i> System Status
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper" id="mainWrapper">
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
+        
+        <footer class="text-center">
+            <small>Medical Entity Classifier API v1.0.0 | Powered by FastAPI & Bootstrap</small>
+        </footer>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Sidebar toggle functionality
+        const sidebar = document.getElementById('sidebar');
+        const mainWrapper = document.getElementById('mainWrapper');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        
+        // Load saved sidebar state
+        const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (sidebarCollapsed) {
+            sidebar.classList.add('collapsed');
+            mainWrapper.classList.add('sidebar-collapsed');
+        }
+        
+        // Toggle sidebar
+        sidebarToggle.addEventListener('click', function() {
+            sidebar.classList.toggle('collapsed');
+            mainWrapper.classList.toggle('sidebar-collapsed');
+            localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+        });
+        
+        // Section collapse functionality
+        document.querySelectorAll('.sidebar-section').forEach(section => {
+            const sectionName = section.dataset.section;
+            const content = document.getElementById('section-' + sectionName);
+            
+            // Load saved state
+            const isCollapsed = localStorage.getItem('section-' + sectionName + '-collapsed') === 'true';
+            if (isCollapsed) {
+                section.classList.add('collapsed');
+                content.classList.add('collapsed');
+            }
+            
+            // Click handler
+            section.addEventListener('click', function() {
+                this.classList.toggle('collapsed');
+                content.classList.toggle('collapsed');
+                localStorage.setItem('section-' + sectionName + '-collapsed', content.classList.contains('collapsed'));
+            });
+        });
+        
+        // Mobile sidebar toggle (for responsive)
+        if (window.innerWidth <= 768) {
+            sidebarToggle.addEventListener('click', function() {
+                sidebar.classList.toggle('mobile-show');
+            });
+        }
+        
+        // Global utility functions
+        const API_BASE = '';
+        
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toastId = 'toast-' + Date.now();
+            const bgClass = {
+                'success': 'bg-success',
+                'error': 'bg-danger',
+                'warning': 'bg-warning',
+                'info': 'bg-primary'
+            }[type] || 'bg-primary';
+            
+            const toastHtml = `
+                <div id="${toastId}" class="toast align-items-center text-white ${bgClass}" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            const toast = new bootstrap.Toast(document.getElementById(toastId));
+            toast.show();
+        }
+
+        function formatEntity(entity) {
+            const typeClass = 'entity-' + entity.type;
+            return `<span class="badge badge-entity ${typeClass}">${entity.text}</span> <small class="text-muted">(${entity.type})</small>`;
+        }
+
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const options = {
+                method,
+                headers: { 'Content-Type': 'application/json' }
+            };
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+            const response = await fetch(API_BASE + endpoint, options);
+            const result = await response.json();
+            
+            // Check for HTTP errors
+            if (!response.ok) {
+                const errorMessage = result.detail || result.error || result.message || 'Request failed';
+                throw new Error(errorMessage);
+            }
+            
+            return result;
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

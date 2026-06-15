@@ -1,0 +1,476 @@
+{% extends "base.html" %}
+{% block title %}Train BERT Model - Medical Entity Classifier{% endblock %}
+
+{% block extra_css %}
+<style>
+    .file-input-wrapper {
+        position: relative;
+        border: 2px dashed #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .file-input-wrapper:hover {
+        border-color: #0d6efd;
+        background-color: #f8f9fa;
+    }
+    .file-input-wrapper.has-file {
+        border-color: #198754;
+        background-color: #d1e7dd;
+    }
+    .file-input-wrapper input[type="file"] {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+    .file-status {
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+    }
+    .file-status.success {
+        color: #198754;
+    }
+    .file-status.error {
+        color: #dc3545;
+    }
+    
+    /* CSV Preview Styles */
+    .csv-preview {
+        background-color: #1e1e2e;
+        padding: 1rem;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.85rem;
+        line-height: 1.6;
+        overflow-x: auto;
+        color: #6c7086;
+    }
+    .csv-line {
+        white-space: pre;
+    }
+    .csv-header {
+        color: #89b4fa;
+        font-weight: 600;
+    }
+    .csv-word {
+        color: #cdd6f4;
+    }
+    .csv-id {
+        color: #a6adc8;
+    }
+    .csv-label-o {
+        color: #f9e2af;
+    }
+    .csv-label-b {
+        color: #a6e3a1;
+    }
+    .csv-label-i {
+        color: #94e2d5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-mortarboard me-2"></i>Train BERT Model</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-gear me-2"></i>Training Configuration
+            </div>
+            <div class="card-body">
+                <form id="trainForm">
+                    <div class="mb-3">
+                        <label for="modelName" class="form-label">Model Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="modelName" 
+                               placeholder="my_medical_ner" required>
+                        <small class="text-muted">Unique name for your model</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="modelType" class="form-label">Model Type <span class="text-danger">*</span></label>
+                        <select class="form-select" id="modelType">
+                            <option value="entity" selected>Entity BERT — NER for entity extraction</option>
+                            <option value="relation">Relation BERT — For relation extraction</option>
+                        </select>
+                        <small class="text-muted">Determines where the model is stored and how it's used</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="baseModel" class="form-label">Base Model</label>
+                        <select class="form-select" id="baseModel">
+                            <option value="dmis-lab/biobert-base-cased-v1.1" selected>BioBERT (recommended)</option>
+                            <option value="microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract">PubMedBERT</option>
+                            <option value="emilyalsentzer/Bio_ClinicalBERT">ClinicalBERT</option>
+                            <option value="allenai/scibert_scivocab_cased">SciBERT</option>
+                            <option value="bert-base-cased">BERT Base</option>
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="epochs" class="form-label">Epochs</label>
+                            <input type="number" class="form-control" id="epochs" value="3" min="1" max="100">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="batchSize" class="form-label">Batch Size</label>
+                            <input type="number" class="form-control" id="batchSize" value="16" min="1" max="128">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="learningRate" class="form-label">Learning Rate</label>
+                            <input type="text" class="form-control" id="learningRate" value="5e-5">
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    <h6 class="mb-3"><i class="bi bi-file-earmark-text me-2"></i>Training Data Files (CSV)</h6>
+
+                    <!-- Train File (Required) -->
+                    <div class="mb-3">
+                        <label class="form-label">Training Data <span class="text-danger">*</span></label>
+                        <div class="file-input-wrapper" id="trainFileWrapper">
+                            <input type="file" id="trainFile" accept=".csv,.txt" required>
+                            <i class="bi bi-cloud-arrow-up" style="font-size: 1.5rem;"></i>
+                            <p class="mb-0 mt-2">Click or drop train.csv</p>
+                        </div>
+                        <div class="file-status" id="trainFileStatus"></div>
+                    </div>
+
+                    <!-- Dev File (Optional) -->
+                    <div class="mb-3">
+                        <label class="form-label">Development/Validation Data <span class="text-muted">(optional)</span></label>
+                        <div class="file-input-wrapper" id="devFileWrapper">
+                            <input type="file" id="devFile" accept=".csv,.txt">
+                            <i class="bi bi-cloud-arrow-up" style="font-size: 1.5rem;"></i>
+                            <p class="mb-0 mt-2">Click or drop dev.csv</p>
+                        </div>
+                        <div class="file-status" id="devFileStatus"></div>
+                    </div>
+
+                    <!-- Test File (Optional) -->
+                    <div class="mb-3">
+                        <label class="form-label">Test Data <span class="text-muted">(optional)</span></label>
+                        <div class="file-input-wrapper" id="testFileWrapper">
+                            <input type="file" id="testFile" accept=".csv,.txt">
+                            <i class="bi bi-cloud-arrow-up" style="font-size: 1.5rem;"></i>
+                            <p class="mb-0 mt-2">Click or drop test.csv</p>
+                        </div>
+                        <div class="file-status" id="testFileStatus"></div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success" id="trainBtn">
+                            <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                            <i class="bi bi-play-fill me-1"></i>Start Training
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-terminal me-2"></i>Training Output
+            </div>
+            <div class="card-body" id="outputContainer">
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-hourglass" style="font-size: 2rem;"></i>
+                    <p class="mt-2">Training output will appear here</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>CSV Format Reference
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-2">Required columns: <span class="text-info">words</span>, <span class="text-info">sentence_id</span>, <span class="text-info">labels</span></p>
+                <div class="csv-preview rounded mb-3">
+                    <div class="csv-line"><span class="csv-header">words</span>,<span class="csv-header">sentence_id</span>,<span class="csv-header">labels</span></div>
+                    <div class="csv-line"><span class="csv-word">The</span>,<span class="csv-id">0</span>,<span class="csv-label-o">O</span></div>
+                    <div class="csv-line"><span class="csv-word">patient</span>,<span class="csv-id">0</span>,<span class="csv-label-o">O</span></div>
+                    <div class="csv-line"><span class="csv-word">has</span>,<span class="csv-id">0</span>,<span class="csv-label-o">O</span></div>
+                    <div class="csv-line"><span class="csv-word">diabetes</span>,<span class="csv-id">0</span>,<span class="csv-label-b">B-Disease</span></div>
+                    <div class="csv-line"><span class="csv-word">mellitus</span>,<span class="csv-id">0</span>,<span class="csv-label-i">I-Disease</span></div>
+                    <div class="csv-line"><span class="csv-word">.</span>,<span class="csv-id">0</span>,<span class="csv-label-o">O</span></div>
+                    <div class="csv-line"><span class="csv-word">Treatment</span>,<span class="csv-id">1</span>,<span class="csv-label-o">O</span></div>
+                    <div class="csv-line"><span class="csv-word">includes</span>,<span class="csv-id">1</span>,<span class="csv-label-o">O</span></div>
+                    <div class="csv-line"><span class="csv-word">insulin</span>,<span class="csv-id">1</span>,<span class="csv-label-b">B-Substance</span></div>
+                </div>
+                
+                <table class="table table-sm small mb-3">
+                    <thead>
+                        <tr><th>Label</th><th>Description</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><span class="csv-label-o">O</span></td><td>Outside any entity</td></tr>
+                        <tr><td><span class="csv-label-b">B-Finding</span></td><td>Beginning of finding</td></tr>
+                        <tr><td><span class="csv-label-i">I-Finding</span></td><td>Inside finding</td></tr>
+                        <tr><td><span class="csv-label-b">B-Disease</span></td><td>Beginning of disease</td></tr>
+                        <tr><td><span class="csv-label-i">I-Disease</span></td><td>Inside disease</td></tr>
+                        <tr><td><span class="csv-label-b">B-QuantitativeMeasure</span></td><td>Beginning of measure</td></tr>
+                        <tr><td><span class="csv-label-i">I-QuantitativeMeasure</span></td><td>Inside measure</td></tr>
+                        <tr><td><span class="csv-label-b">B-Substance</span></td><td>Beginning of substance</td></tr>
+                        <tr><td><span class="csv-label-i">I-Substance</span></td><td>Inside substance</td></tr>
+                        <tr><td><span class="csv-label-b">B-Procedure</span></td><td>Beginning of procedure</td></tr>
+                        <tr><td><span class="csv-label-i">I-Procedure</span></td><td>Inside procedure</td></tr>
+                    </tbody>
+                </table>
+                <small class="text-muted">
+                    <i class="bi bi-lightbulb me-1"></i>
+                    Use <a href="/app/llm/export">LLM Export</a> to generate training data from classified texts.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('trainForm');
+    const trainBtn = document.getElementById('trainBtn');
+    const outputContainer = document.getElementById('outputContainer');
+    
+    // File inputs and their wrappers
+    const trainFile = document.getElementById('trainFile');
+    const devFile = document.getElementById('devFile');
+    const testFile = document.getElementById('testFile');
+    
+    const trainFileWrapper = document.getElementById('trainFileWrapper');
+    const devFileWrapper = document.getElementById('devFileWrapper');
+    const testFileWrapper = document.getElementById('testFileWrapper');
+    
+    const trainFileStatus = document.getElementById('trainFileStatus');
+    const devFileStatus = document.getElementById('devFileStatus');
+    const testFileStatus = document.getElementById('testFileStatus');
+    
+    // File validation function
+    function validateCSVFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                const lines = content.trim().split('\n');
+                
+                if (lines.length < 2) {
+                    reject('File must have at least a header and one data row');
+                    return;
+                }
+                
+                const header = lines[0].toLowerCase();
+                if (!header.includes('words') || !header.includes('sentence_id') || !header.includes('labels')) {
+                    reject('CSV must have columns: words, sentence_id, labels');
+                    return;
+                }
+                
+                // Count sentences
+                const sentences = new Set();
+                for (let i = 1; i < lines.length; i++) {
+                    const parts = lines[i].split(',');
+                    if (parts.length >= 2) {
+                        sentences.add(parts[1]);
+                    }
+                }
+                
+                resolve({
+                    rows: lines.length - 1,
+                    sentences: sentences.size
+                });
+            };
+            reader.onerror = () => reject('Error reading file');
+            reader.readAsText(file);
+        });
+    }
+    
+    // Setup file input handlers
+    function setupFileInput(fileInput, wrapper, statusEl) {
+        fileInput.addEventListener('change', async function() {
+            if (this.files.length > 0) {
+                const file = this.files[0];
+                statusEl.textContent = 'Validating...';
+                statusEl.className = 'file-status';
+                
+                try {
+                    const info = await validateCSVFile(file);
+                    wrapper.classList.add('has-file');
+                    statusEl.textContent = `✓ ${file.name} (${info.rows} rows, ${info.sentences} sentences)`;
+                    statusEl.className = 'file-status success';
+                } catch (error) {
+                    wrapper.classList.remove('has-file');
+                    statusEl.textContent = `✗ ${error}`;
+                    statusEl.className = 'file-status error';
+                    this.value = '';
+                }
+            } else {
+                wrapper.classList.remove('has-file');
+                statusEl.textContent = '';
+            }
+        });
+        
+        // Drag and drop support
+        wrapper.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#0d6efd';
+        });
+        
+        wrapper.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '';
+        });
+        
+        wrapper.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '';
+            
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                fileInput.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+    
+    setupFileInput(trainFile, trainFileWrapper, trainFileStatus);
+    setupFileInput(devFile, devFileWrapper, devFileStatus);
+    setupFileInput(testFile, testFileWrapper, testFileStatus);
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const modelName = document.getElementById('modelName').value.trim();
+        const baseModel = document.getElementById('baseModel').value;
+        const epochs = parseInt(document.getElementById('epochs').value);
+        const batchSize = parseInt(document.getElementById('batchSize').value);
+        const learningRate = parseFloat(document.getElementById('learningRate').value);
+
+        if (!modelName) {
+            showToast('Please enter a model name', 'warning');
+            return;
+        }
+        
+        if (!trainFile.files.length) {
+            showToast('Please select a training data file', 'warning');
+            return;
+        }
+
+        trainBtn.classList.add('loading');
+        trainBtn.disabled = true;
+
+        outputContainer.innerHTML = `
+            <div class="d-flex align-items-center">
+                <div class="spinner-border text-success me-3" role="status"></div>
+                <div>
+                    <strong>Training in progress...</strong>
+                    <p class="mb-0 small text-muted">This may take several minutes depending on data size.</p>
+                </div>
+            </div>
+        `;
+
+        try {
+            // Build FormData for file upload
+            const formData = new FormData();
+            formData.append('train_file', trainFile.files[0]);
+            formData.append('model_name', modelName);
+            formData.append('base_model', baseModel);
+            formData.append('epochs', epochs.toString());
+            formData.append('batch_size', batchSize.toString());
+            formData.append('learning_rate', learningRate.toString());
+            formData.append('model_type', document.getElementById('modelType').value);
+            
+            if (devFile.files.length > 0) {
+                formData.append('dev_file', devFile.files[0]);
+            }
+            
+            if (testFile.files.length > 0) {
+                formData.append('test_file', testFile.files[0]);
+            }
+            
+            const response = await fetch('/bert/train/files', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+
+            if (data.success) {
+                let metricsHtml = '';
+                if (data.training_metrics) {
+                    const metrics = data.training_metrics;
+                    metricsHtml = `
+                        <div class="mt-3">
+                            <h6>Training Metrics</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <ul class="list-unstyled small">
+                                        <li><strong>Loss:</strong> ${metrics.loss?.toFixed(4) || 'N/A'}</li>
+                                        <li><strong>Epochs:</strong> ${metrics.epochs || 'N/A'}</li>
+                                        <li><strong>Train samples:</strong> ${metrics.train_samples || 'N/A'}</li>
+                                        <li><strong>Dev samples:</strong> ${metrics.dev_samples || 0}</li>
+                                        <li><strong>Test samples:</strong> ${metrics.test_samples || 0}</li>
+                                    </ul>
+                                </div>
+                                ${metrics.test_accuracy !== undefined ? `
+                                <div class="col-md-6">
+                                    <h6 class="text-success">Test Results</h6>
+                                    <ul class="list-unstyled small">
+                                        <li><strong>Test Accuracy:</strong> ${(metrics.test_accuracy * 100).toFixed(2)}%</li>
+                                        <li><strong>Test Loss:</strong> ${metrics.test_loss?.toFixed(4) || 'N/A'}</li>
+                                    </ul>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                outputContainer.innerHTML = `
+                    <div class="alert alert-success">
+                        <h5><i class="bi bi-check-circle me-2"></i>Training Complete!</h5>
+                        <p class="mb-0">Model <strong>${data.model_name}</strong> has been trained successfully.</p>
+                    </div>
+                    ${metricsHtml}
+                    <div class="mt-3">
+                        <a href="/app/bert/classify" class="btn btn-success">
+                            <i class="bi bi-play-fill me-1"></i>Use Model
+                        </a>
+                        <a href="/app/bert/models" class="btn btn-outline-secondary ms-2">
+                            <i class="bi bi-box me-1"></i>View Models
+                        </a>
+                    </div>
+                `;
+                showToast('Model trained successfully!', 'success');
+            } else {
+                outputContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5><i class="bi bi-exclamation-triangle me-2"></i>Training Failed</h5>
+                        <p class="mb-0">${data.error || 'Unknown error occurred'}</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            outputContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5><i class="bi bi-exclamation-triangle me-2"></i>Error</h5>
+                    <p class="mb-0">${error.message}</p>
+                </div>
+            `;
+        } finally {
+            trainBtn.classList.remove('loading');
+            trainBtn.disabled = false;
+        }
+    });
+});
+</script>
+{% endblock %}

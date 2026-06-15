@@ -1,0 +1,683 @@
+<http://example.org/medical/cancer> <http://www.w3.org/2004/02/skos/core#altLabel> "Carcinoma" .
+<http://example.org/medical/potassium> <http://www.w3.org/2004/02/skos/core#altLabel> "K+" .
+<http://example.org/medical/dizziness> <http://www.w3.org/2000/01/rdf-schema#label> "Dizziness" .
+<http://example.org/medical/glucose> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/angiography> <http://www.w3.org/2000/01/rdf-schema#label> "Angiography" .
+<http://example.org/medical/bmi> <http://www.w3.org/2000/01/rdf-schema#label> "BMI" .
+<http://example.org/medical/physical_therapy> <http://www.w3.org/2004/02/skos/core#altLabel> "PT" .
+<http://example.org/medical/dialysis> <http://www.w3.org/2004/02/skos/core#altLabel> "Hemodialysis" .
+<http://example.org/medical/heparin> <http://www.w3.org/2004/02/skos/core#altLabel> "Anticoagulant" .
+<http://example.org/medical/insulin> <http://www.w3.org/2004/02/skos/core#altLabel> "Insulin injection" .
+<http://example.org/medical/parkinson> <http://www.w3.org/2004/02/skos/core#altLabel> "Parkinsons" .
+<http://example.org/medical/types/Procedure> <http://www.w3.org/2004/02/skos/core#altLabel> "ExaminationProcedure" .
+<http://example.org/medical/diabetes_type_1> <http://www.w3.org/2000/01/rdf-schema#label> "Type 1 Diabetes" .
+<http://example.org/medical/atorvastatin> <http://www.w3.org/2004/02/skos/core#altLabel> "Statin" .
+<http://example.org/medical/fever> <http://www.w3.org/2000/01/rdf-schema#label> "Fever" .
+<http://example.org/medical/azithromycin> <http://www.w3.org/2004/02/skos/core#altLabel> "Zithromax" .
+<http://example.org/medical/creatinine> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/ldl> <http://www.w3.org/2000/01/rdf-schema#label> "LDL" .
+<http://example.org/medical/depression> <http://www.w3.org/2000/01/rdf-schema#label> "Depression" .
+<http://example.org/medical/hemoglobin> <http://www.w3.org/2004/02/skos/core#prefLabel> "Hemoglobin" .
+<http://example.org/medical/dialysis> <http://www.w3.org/2004/02/skos/core#prefLabel> "Dialysis" .
+<http://example.org/medical/angiography> <http://www.w3.org/2004/02/skos/core#altLabel> "Angiogram" .
+<http://example.org/medical/types/Substance> <http://www.w3.org/2004/02/skos/core#altLabel> "Medication" .
+<http://example.org/medical/warfarin> <http://www.w3.org/2000/01/rdf-schema#label> "Warfarin" .
+<http://example.org/medical/ct_scan> <http://www.w3.org/2004/02/skos/core#altLabel> "CT scan" .
+<http://example.org/medical/paracetamol> <http://www.w3.org/2004/02/skos/core#altLabel> "Tylenol" .
+<http://example.org/medical/ibuprofen> <http://www.w3.org/2004/02/skos/core#altLabel> "NSAID" .
+<http://example.org/medical/types/Disease> <http://www.w3.org/2004/02/skos/core#prefLabel> "Disease" .
+<http://example.org/medical/endoscopy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/cholesterol> <http://www.w3.org/2000/01/rdf-schema#label> "Cholesterol" .
+<http://example.org/medical/hypothyroidism> <http://www.w3.org/2000/01/rdf-schema#label> "Hypothyroidism" .
+<http://example.org/medical/ibuprofen> <http://www.w3.org/2004/02/skos/core#altLabel> "Advil" .
+<http://example.org/medical/gfr> <http://www.w3.org/2004/02/skos/core#altLabel> "eGFR" .
+<http://example.org/medical/hypertension> <http://www.w3.org/2004/02/skos/core#altLabel> "Arterial hypertension" .
+<http://example.org/medical/muscle_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Myalgia" .
+<http://example.org/medical/fever> <http://www.w3.org/2004/02/skos/core#altLabel> "Elevated temperature" .
+<http://example.org/medical/depression> <http://www.w3.org/2004/02/skos/core#altLabel> "Major depressive disorder" .
+<http://example.org/medical/atrial_fibrillation> <http://www.w3.org/2000/01/rdf-schema#label> "Atrial fibrillation" .
+<http://example.org/medical/stroke> <http://www.w3.org/2004/02/skos/core#altLabel> "Brain attack" .
+<http://example.org/medical/vomiting> <http://www.w3.org/2004/02/skos/core#altLabel> "Vomit" .
+<http://example.org/medical/diarrhea> <http://www.w3.org/2004/02/skos/core#altLabel> "Diarrhoea" .
+<http://example.org/medical/vaccination> <http://www.w3.org/2000/01/rdf-schema#label> "Vaccination" .
+<http://example.org/medical/community_acquired_pneumonia_1771357024115> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/oxygen> <http://www.w3.org/2000/01/rdf-schema#label> "Oxygen" .
+<http://example.org/medical/warfarin> <http://www.w3.org/2004/02/skos/core#altLabel> "Coumadin" .
+<http://example.org/medical/types/QuantitativeMeasure> <http://www.w3.org/2000/01/rdf-schema#label> "QuantitativeMeasure" .
+<http://example.org/medical/atorvastatin> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/saline> <http://www.w3.org/2004/02/skos/core#altLabel> "NS" .
+<http://example.org/medical/angiography> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/intubation> <http://www.w3.org/2000/01/rdf-schema#label> "Intubation" .
+<http://example.org/medical/runny_nose> <http://www.w3.org/2004/02/skos/core#altLabel> "Nasal discharge" .
+<http://example.org/medical/myocardial_infarction> <http://www.w3.org/2004/02/skos/core#altLabel> "AMI" .
+<http://example.org/medical/respiratory_rate> <http://www.w3.org/2004/02/skos/core#prefLabel> "Respiratory rate" .
+<http://example.org/medical/blood_glucose> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/diarrhea> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/types/Substance> <http://www.w3.org/2000/01/rdf-schema#label> "Substance" .
+<http://example.org/medical/persistent_cough_1771357024115> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Symptom> .
+<http://example.org/medical/glucose> <http://www.w3.org/2004/02/skos/core#altLabel> "D5W" .
+<http://example.org/medical/lisinopril> <http://www.w3.org/2004/02/skos/core#prefLabel> "Lisinopril" .
+<http://example.org/medical/parkinson> <http://www.w3.org/2000/01/rdf-schema#label> "Parkinson's disease" .
+<http://example.org/medical/persistent_cough_1771357024115> <http://www.w3.org/2000/01/rdf-schema#label> "persistent cough" .
+<http://example.org/medical/parkinson> <http://www.w3.org/2004/02/skos/core#altLabel> "Parkinson" .
+<http://example.org/medical/insulin> <http://www.w3.org/2004/02/skos/core#prefLabel> "Insulin" .
+<http://example.org/medical/cancer> <http://www.w3.org/2004/02/skos/core#altLabel> "Malignancy" .
+<http://example.org/medical/endometriomas_1769863533552> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/back_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Lower back pain" .
+<http://example.org/medical/endoscopy> <http://www.w3.org/2004/02/skos/core#altLabel> "Endoscopic examination" .
+<http://example.org/medical/aspirin> <http://www.w3.org/2000/01/rdf-schema#label> "Aspirin" .
+<http://example.org/medical/stroke> <http://www.w3.org/2004/02/skos/core#altLabel> "Cerebrovascular accident" .
+<http://example.org/medical/endometriosis_1769843855667> <http://www.w3.org/2004/02/skos/core#prefLabel> "endometriosis" .
+<http://example.org/medical/cholesterol> <http://www.w3.org/2004/02/skos/core#altLabel> "Cholesterol level" .
+<http://example.org/medical/surgery> <http://www.w3.org/2004/02/skos/core#prefLabel> "Surgery" .
+<http://example.org/medical/gfr> <http://www.w3.org/2004/02/skos/core#altLabel> "GFR" .
+<http://example.org/medical/wbc> <http://www.w3.org/2004/02/skos/core#altLabel> "WBC" .
+<http://example.org/medical/heart_rate> <http://www.w3.org/2004/02/skos/core#altLabel> "BPM" .
+<http://example.org/medical/intubation> <http://www.w3.org/2004/02/skos/core#altLabel> "ETT" .
+<http://example.org/medical/asthma> <http://www.w3.org/2004/02/skos/core#prefLabel> "Asthma" .
+<http://example.org/medical/endoscopy> <http://www.w3.org/2004/02/skos/core#altLabel> "Upper endoscopy" .
+<http://example.org/medical/diabetes_type_2> <http://www.w3.org/2004/02/skos/core#altLabel> "Adult-onset diabetes" .
+<http://example.org/medical/ultrasound> <http://www.w3.org/2004/02/skos/core#prefLabel> "Ultrasound" .
+<http://example.org/medical/weight> <http://www.w3.org/2004/02/skos/core#prefLabel> "Body weight" .
+<http://example.org/medical/oxygen_saturation> <http://www.w3.org/2000/01/rdf-schema#label> "Oxygen saturation" .
+<http://example.org/medical/insomnia> <http://www.w3.org/2004/02/skos/core#altLabel> "Sleep difficulty" .
+<http://example.org/medical/abdominal_pain> <http://www.w3.org/2004/02/skos/core#prefLabel> "Abdominal pain" .
+<http://example.org/medical/diabetes_mellitus> <http://www.w3.org/2000/01/rdf-schema#label> "Diabetes mellitus" .
+<http://example.org/medical/types/Substance> <http://www.w3.org/2004/02/skos/core#definition> "Material administered or detected" .
+<http://example.org/medical/alzheimer> <http://www.w3.org/2004/02/skos/core#prefLabel> "Alzheimer's disease" .
+<http://example.org/medical/ct_scan> <http://www.w3.org/2000/01/rdf-schema#label> "CT scan" .
+<http://example.org/medical/lumbar_puncture> <http://www.w3.org/2000/01/rdf-schema#label> "Lumbar puncture" .
+<http://example.org/medical/ultrasound_scan_1769863523283> <http://www.w3.org/2000/01/rdf-schema#label> "ultrasound scan" .
+<http://example.org/medical/diabetes_type_1> <http://www.w3.org/2004/02/skos/core#prefLabel> "Type 1 Diabetes Mellitus" .
+<http://example.org/medical/rash> <http://www.w3.org/2004/02/skos/core#altLabel> "Exanthema" .
+<http://example.org/medical/cancer> <http://www.w3.org/2004/02/skos/core#altLabel> "Tumor" .
+<http://example.org/medical/swelling> <http://www.w3.org/2004/02/skos/core#altLabel> "Oedema" .
+<http://example.org/medical/oxygen> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/contrast_agent> <http://www.w3.org/2004/02/skos/core#altLabel> "Contrast material" .
+<http://example.org/medical/cough> <http://www.w3.org/2004/02/skos/core#altLabel> "Tussis" .
+<http://example.org/medical/diarrhea> <http://www.w3.org/2000/01/rdf-schema#label> "Diarrhea" .
+<http://example.org/medical/endoscopy> <http://www.w3.org/2004/02/skos/core#prefLabel> "Endoscopy" .
+<http://example.org/medical/pet_scan> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/physical_therapy> <http://www.w3.org/2004/02/skos/core#altLabel> "Rehab" .
+<http://example.org/medical/wbc> <http://www.w3.org/2004/02/skos/core#prefLabel> "White blood cell count" .
+<http://example.org/medical/weight_loss> <http://www.w3.org/2000/01/rdf-schema#label> "Weight loss" .
+<http://example.org/medical/dizziness> <http://www.w3.org/2004/02/skos/core#altLabel> "Lightheadedness" .
+<http://example.org/medical/types/Procedure> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<http://example.org/medical/pneumonia> <http://www.w3.org/2004/02/skos/core#altLabel> "Pulmonary infection" .
+<http://example.org/medical/heparin> <http://www.w3.org/2000/01/rdf-schema#label> "Heparin" .
+<http://example.org/medical/vaccination> <http://www.w3.org/2004/02/skos/core#altLabel> "Vaccine" .
+<http://example.org/medical/glucose> <http://www.w3.org/2004/02/skos/core#prefLabel> "Glucose" .
+<http://example.org/medical/troponin> <http://www.w3.org/2004/02/skos/core#altLabel> "TnI" .
+<http://example.org/medical/diabetes_mellitus> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/weight_loss> <http://www.w3.org/2004/02/skos/core#altLabel> "Losing weight" .
+<http://example.org/medical/saline> <http://www.w3.org/2004/02/skos/core#prefLabel> "Normal saline" .
+<http://example.org/medical/insomnia> <http://www.w3.org/2000/01/rdf-schema#label> "Insomnia" .
+<http://example.org/medical/electrocardiogram> <http://www.w3.org/2004/02/skos/core#altLabel> "EKG" .
+<http://example.org/medical/temperature> <http://www.w3.org/2004/02/skos/core#altLabel> "Core temperature" .
+<http://example.org/medical/paracetamol> <http://www.w3.org/2000/01/rdf-schema#label> "Paracetamol" .
+<http://example.org/medical/atrial_fibrillation> <http://www.w3.org/2004/02/skos/core#altLabel> "AF" .
+<http://example.org/medical/nausea> <http://www.w3.org/2004/02/skos/core#altLabel> "Queasiness" .
+<http://example.org/medical/physical_therapy> <http://www.w3.org/2004/02/skos/core#prefLabel> "Physical therapy" .
+<http://example.org/medical/bmi> <http://www.w3.org/2004/02/skos/core#prefLabel> "Body Mass Index" .
+<http://example.org/medical/triglycerides> <http://www.w3.org/2004/02/skos/core#altLabel> "TG" .
+<http://example.org/medical/xray> <http://www.w3.org/2004/02/skos/core#prefLabel> "X-ray" .
+<http://example.org/medical/cough> <http://www.w3.org/2004/02/skos/core#altLabel> "Productive cough" .
+<http://example.org/medical/omeprazole> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/paracetamol> <http://www.w3.org/2004/02/skos/core#altLabel> "Acetaminophen" .
+<http://example.org/medical/shortness_of_breath> <http://www.w3.org/2004/02/skos/core#altLabel> "Dyspnea" .
+<http://example.org/medical/ultrasound> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/biopsy> <http://www.w3.org/2004/02/skos/core#prefLabel> "Biopsy" .
+<http://example.org/medical/blood_test> <http://www.w3.org/2004/02/skos/core#altLabel> "Blood work" .
+<http://example.org/medical/headache> <http://www.w3.org/2004/02/skos/core#altLabel> "Head pain" .
+<http://example.org/medical/runny_nose> <http://www.w3.org/2000/01/rdf-schema#label> "Runny nose" .
+<http://example.org/medical/radiation_therapy> <http://www.w3.org/2004/02/skos/core#altLabel> "Radiotherapy" .
+<http://example.org/medical/pet_scan> <http://www.w3.org/2004/02/skos/core#altLabel> "PET-CT" .
+<http://example.org/medical/palpitations> <http://www.w3.org/2004/02/skos/core#altLabel> "Racing heart" .
+<http://example.org/medical/heart_rate> <http://www.w3.org/2000/01/rdf-schema#label> "Heart rate" .
+<http://example.org/medical/palpitations> <http://www.w3.org/2000/01/rdf-schema#label> "Palpitations" .
+<http://example.org/medical/arthritis> <http://www.w3.org/2004/02/skos/core#prefLabel> "Arthritis" .
+<http://example.org/medical/cough> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/heart_rate> <http://www.w3.org/2004/02/skos/core#altLabel> "Pulse rate" .
+<http://example.org/medical/cancer> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/vomiting> <http://www.w3.org/2000/01/rdf-schema#label> "Vomiting" .
+<http://example.org/medical/osteoarthritis> <http://www.w3.org/2000/01/rdf-schema#label> "Osteoarthritis" .
+<http://example.org/medical/cough> <http://www.w3.org/2004/02/skos/core#prefLabel> "Cough" .
+<http://example.org/medical/anxiety> <http://www.w3.org/2004/02/skos/core#prefLabel> "Anxiety disorder" .
+<http://example.org/medical/physical_therapy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/muscle_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Muscle ache" .
+<http://example.org/medical/nausea> <http://www.w3.org/2000/01/rdf-schema#label> "Nausea" .
+<http://example.org/medical/echocardiogram> <http://www.w3.org/2004/02/skos/core#altLabel> "Cardiac ultrasound" .
+<http://example.org/medical/echocardiogram> <http://www.w3.org/2000/01/rdf-schema#label> "Echocardiogram" .
+<http://example.org/medical/blood_glucose> <http://www.w3.org/2004/02/skos/core#altLabel> "Glycemia" .
+<http://example.org/medical/stroke> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/radiation_therapy> <http://www.w3.org/2004/02/skos/core#prefLabel> "Radiation therapy" .
+<http://example.org/medical/hyperthyroidism> <http://www.w3.org/2004/02/skos/core#prefLabel> "Hyperthyroidism" .
+<http://example.org/medical/heart_failure> <http://www.w3.org/2004/02/skos/core#altLabel> "Cardiac insufficiency" .
+<http://example.org/medical/ldl> <http://www.w3.org/2004/02/skos/core#prefLabel> "LDL cholesterol" .
+<http://example.org/medical/weight> <http://www.w3.org/2000/01/rdf-schema#label> "Weight" .
+<http://example.org/medical/blood_test> <http://www.w3.org/2004/02/skos/core#altLabel> "Laboratory test" .
+<http://example.org/medical/community_acquired_pneumonia_1771357024115> <http://example.org/medical/relations/has_symptom> <http://example.org/medical/persistent_cough_1771357024115> .
+<http://example.org/medical/numbness> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/atorvastatin> <http://www.w3.org/2004/02/skos/core#altLabel> "Lipitor" .
+<http://example.org/medical/sodium> <http://www.w3.org/2004/02/skos/core#altLabel> "Salt" .
+<http://example.org/medical/back_pain> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/diabetes_mellitus> <http://www.w3.org/2004/02/skos/core#altLabel> "Diabetic" .
+<http://example.org/medical/platelet_count> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/wbc> <http://www.w3.org/2000/01/rdf-schema#label> "WBC" .
+<http://example.org/medical/chest_pain> <http://www.w3.org/2004/02/skos/core#prefLabel> "Chest pain" .
+<http://example.org/medical/alzheimer> <http://www.w3.org/2004/02/skos/core#altLabel> "AD" .
+<http://example.org/medical/cancer> <http://www.w3.org/2004/02/skos/core#altLabel> "Tumour" .
+<http://example.org/medical/biopsy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/dizziness> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/mammography> <http://www.w3.org/2004/02/skos/core#altLabel> "Mammogram" .
+<http://example.org/medical/blood_glucose> <http://www.w3.org/2004/02/skos/core#altLabel> "BG" .
+<http://example.org/medical/ct_scan> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/muscle_pain> <http://www.w3.org/2000/01/rdf-schema#label> "Muscle pain" .
+<http://example.org/medical/prednisone> <http://www.w3.org/2000/01/rdf-schema#label> "Prednisone" .
+<http://example.org/medical/mri> <http://www.w3.org/2004/02/skos/core#altLabel> "MRI" .
+<http://example.org/medical/diabetes_mellitus> <http://www.w3.org/2004/02/skos/core#altLabel> "DM" .
+<http://example.org/medical/prednisone> <http://www.w3.org/2004/02/skos/core#altLabel> "Corticosteroid" .
+<http://example.org/medical/depression> <http://www.w3.org/2004/02/skos/core#prefLabel> "Depression" .
+<http://example.org/medical/creatinine> <http://www.w3.org/2000/01/rdf-schema#label> "Creatinine" .
+<http://example.org/medical/diabetes_type_1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/asthma> <http://www.w3.org/2004/02/skos/core#altLabel> "Bronchial asthma" .
+<http://example.org/medical/lisinopril> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/ultrasound> <http://www.w3.org/2004/02/skos/core#altLabel> "Sonogram" .
+<http://example.org/medical/warfarin> <http://www.w3.org/2004/02/skos/core#prefLabel> "Warfarin" .
+<http://example.org/medical/amlodipine> <http://www.w3.org/2000/01/rdf-schema#label> "Amlodipine" .
+<http://example.org/medical/insomnia> <http://www.w3.org/2004/02/skos/core#altLabel> "Sleeplessness" .
+<http://example.org/medical/epilepsy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/dialysis> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/saline> <http://www.w3.org/2000/01/rdf-schema#label> "Saline" .
+<http://example.org/medical/potassium> <http://www.w3.org/2004/02/skos/core#altLabel> "Potassium chloride" .
+<http://example.org/medical/echocardiogram> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/cholesterol> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/hemoglobin> <http://www.w3.org/2004/02/skos/core#altLabel> "Hgb" .
+<http://example.org/medical/vaccination> <http://www.w3.org/2004/02/skos/core#prefLabel> "Vaccination" .
+<http://example.org/medical/back_pain> <http://www.w3.org/2004/02/skos/core#prefLabel> "Back pain" .
+<http://example.org/medical/parkinson> <http://www.w3.org/2004/02/skos/core#altLabel> "PD" .
+<http://example.org/medical/fatigue> <http://www.w3.org/2000/01/rdf-schema#label> "Fatigue" .
+<http://example.org/medical/vomiting> <http://www.w3.org/2004/02/skos/core#altLabel> "Emesis" .
+<http://example.org/medical/electrocardiogram> <http://www.w3.org/2000/01/rdf-schema#label> "Electrocardiogram" .
+<http://example.org/medical/platelet_count> <http://www.w3.org/2004/02/skos/core#altLabel> "PLT" .
+<http://example.org/medical/saline> <http://www.w3.org/2004/02/skos/core#altLabel> "NaCl" .
+<http://example.org/medical/vomiting> <http://www.w3.org/2004/02/skos/core#altLabel> "Throwing up" .
+<http://example.org/medical/blood_test> <http://www.w3.org/2004/02/skos/core#altLabel> "Blood analysis" .
+<http://example.org/medical/anemia> <http://www.w3.org/2004/02/skos/core#altLabel> "Low hemoglobin" .
+<http://example.org/medical/hypertension> <http://www.w3.org/2004/02/skos/core#altLabel> "HTN" .
+<http://example.org/medical/paracetamol> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/echocardiogram> <http://www.w3.org/2004/02/skos/core#altLabel> "Echo" .
+<http://example.org/medical/diabetes_type_2> <http://www.w3.org/2000/01/rdf-schema#label> "Type 2 Diabetes" .
+<http://example.org/medical/weight_gain> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/types/Procedure> <http://www.w3.org/2000/01/rdf-schema#label> "Procedure" .
+<http://example.org/medical/metformin> <http://www.w3.org/2000/01/rdf-schema#label> "Metformin" .
+<http://example.org/medical/chest_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Thoracic pain" .
+<http://example.org/medical/hyperthyroidism> <http://www.w3.org/2004/02/skos/core#altLabel> "Overactive thyroid" .
+<http://example.org/medical/cancer> <http://www.w3.org/2000/01/rdf-schema#label> "Cancer" .
+<http://example.org/medical/rheumatoid_arthritis> <http://www.w3.org/2000/01/rdf-schema#label> "Rheumatoid arthritis" .
+<http://example.org/medical/dialysis> <http://www.w3.org/2004/02/skos/core#altLabel> "Kidney dialysis" .
+<http://example.org/medical/atorvastatin> <http://www.w3.org/2000/01/rdf-schema#label> "Atorvastatin" .
+<http://example.org/medical/muscle_pain> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/hypothyroidism> <http://www.w3.org/2004/02/skos/core#prefLabel> "Hypothyroidism" .
+<http://example.org/medical/numbness> <http://www.w3.org/2004/02/skos/core#altLabel> "Paresthesia" .
+<http://example.org/medical/surgery> <http://www.w3.org/2004/02/skos/core#altLabel> "Surgical procedure" .
+<http://example.org/medical/metformin> <http://www.w3.org/2004/02/skos/core#altLabel> "Glucophage" .
+<http://example.org/medical/kidney_disease> <http://www.w3.org/2000/01/rdf-schema#label> "Chronic kidney disease" .
+<http://example.org/medical/mammography> <http://www.w3.org/2000/01/rdf-schema#label> "Mammography" .
+<http://example.org/medical/omeprazole> <http://www.w3.org/2004/02/skos/core#altLabel> "Prilosec" .
+<http://example.org/medical/heart_failure> <http://www.w3.org/2000/01/rdf-schema#label> "Heart failure" .
+<http://example.org/medical/atrial_fibrillation> <http://www.w3.org/2004/02/skos/core#altLabel> "AFib" .
+<http://example.org/medical/atrial_fibrillation> <http://www.w3.org/2004/02/skos/core#prefLabel> "Atrial fibrillation" .
+<http://example.org/medical/types/Procedure> <http://www.w3.org/2004/02/skos/core#definition> "Any procedural information" .
+<http://example.org/medical/endometriomas_1769863533552> <http://www.w3.org/2000/01/rdf-schema#label> "endometriomas" .
+<http://example.org/medical/chemotherapy> <http://www.w3.org/2000/01/rdf-schema#label> "Chemotherapy" .
+<http://example.org/medical/blurred_vision> <http://www.w3.org/2004/02/skos/core#altLabel> "Visual disturbance" .
+<http://example.org/medical/chest_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Angina" .
+<http://example.org/medical/headache> <http://www.w3.org/2004/02/skos/core#prefLabel> "Headache" .
+<http://example.org/medical/hypothyroidism> <http://www.w3.org/2004/02/skos/core#altLabel> "Underactive thyroid" .
+<http://example.org/medical/inr> <http://www.w3.org/2004/02/skos/core#prefLabel> "International Normalized Ratio" .
+<http://example.org/medical/radiation_therapy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/constipation> <http://www.w3.org/2004/02/skos/core#altLabel> "Difficulty passing stool" .
+<http://example.org/medical/azithromycin> <http://www.w3.org/2004/02/skos/core#altLabel> "Z-pack" .
+<http://example.org/medical/height> <http://www.w3.org/2004/02/skos/core#prefLabel> "Height" .
+<http://example.org/medical/catheterization> <http://www.w3.org/2000/01/rdf-schema#label> "Catheterization" .
+<http://example.org/medical/intubation> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/loss_of_appetite> <http://www.w3.org/2000/01/rdf-schema#label> "Loss of appetite" .
+<http://example.org/medical/oxygen_saturation> <http://www.w3.org/2004/02/skos/core#altLabel> "O2 sat" .
+<http://example.org/medical/types/Substance> <http://www.w3.org/2004/02/skos/core#prefLabel> "Substance" .
+<http://example.org/medical/hdl> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/rash> <http://www.w3.org/2004/02/skos/core#altLabel> "Eruption" .
+<http://example.org/medical/types/Substance> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<http://example.org/medical/hba1c> <http://www.w3.org/2004/02/skos/core#altLabel> "A1c" .
+<http://example.org/medical/abdominal_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Stomach ache" .
+<http://example.org/medical/types/Disease> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<http://example.org/medical/angiography> <http://www.w3.org/2004/02/skos/core#prefLabel> "Angiography" .
+<http://example.org/medical/radiation_therapy> <http://www.w3.org/2004/02/skos/core#altLabel> "RT" .
+<http://example.org/medical/diabetes_type_1> <http://www.w3.org/2004/02/skos/core#altLabel> "Insulin-dependent diabetes" .
+<http://example.org/medical/parkinson> <http://www.w3.org/2004/02/skos/core#prefLabel> "Parkinson's disease" .
+<http://example.org/medical/fever> <http://www.w3.org/2004/02/skos/core#prefLabel> "Fever" .
+<http://example.org/medical/insomnia> <http://www.w3.org/2004/02/skos/core#prefLabel> "Insomnia" .
+<http://example.org/medical/cholesterol> <http://www.w3.org/2004/02/skos/core#altLabel> "TC" .
+<http://example.org/medical/lumbar_puncture> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/paracetamol> <http://www.w3.org/2004/02/skos/core#prefLabel> "Paracetamol" .
+<http://example.org/medical/contrast_agent> <http://www.w3.org/2004/02/skos/core#altLabel> "Contrast media" .
+<http://example.org/medical/colonoscopy> <http://www.w3.org/2004/02/skos/core#altLabel> "Colon exam" .
+<http://example.org/medical/ldl> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/temperature> <http://www.w3.org/2000/01/rdf-schema#label> "Temperature" .
+<http://example.org/medical/triglycerides> <http://www.w3.org/2000/01/rdf-schema#label> "Triglycerides" .
+<http://example.org/medical/myocardial_infarction> <http://www.w3.org/2000/01/rdf-schema#label> "Myocardial infarction" .
+<http://example.org/medical/diabetes_mellitus> <http://www.w3.org/2004/02/skos/core#prefLabel> "Diabetes mellitus" .
+<http://example.org/medical/blood_glucose> <http://www.w3.org/2004/02/skos/core#altLabel> "Blood sugar level" .
+<http://example.org/medical/weight> <http://www.w3.org/2004/02/skos/core#altLabel> "Weight" .
+<http://example.org/medical/mri> <http://www.w3.org/2000/01/rdf-schema#label> "MRI" .
+<http://example.org/medical/amlodipine> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/electrocardiogram> <http://www.w3.org/2004/02/skos/core#altLabel> "12-lead ECG" .
+<http://example.org/medical/runny_nose> <http://www.w3.org/2004/02/skos/core#prefLabel> "Runny nose" .
+<http://example.org/medical/hemoglobin> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/copd> <http://www.w3.org/2004/02/skos/core#altLabel> "COPD" .
+<http://example.org/medical/oxygen> <http://www.w3.org/2004/02/skos/core#prefLabel> "Oxygen" .
+<http://example.org/medical/palpitations> <http://www.w3.org/2004/02/skos/core#prefLabel> "Palpitations" .
+<http://example.org/medical/ultrasound_scan_1769863523283> <http://www.w3.org/2004/02/skos/core#prefLabel> "ultrasound scan" .
+<http://example.org/medical/prednisone> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/sore_throat> <http://www.w3.org/2004/02/skos/core#altLabel> "Pharyngitis" .
+<http://example.org/medical/intubation> <http://www.w3.org/2004/02/skos/core#prefLabel> "Intubation" .
+<http://example.org/medical/types/QuantitativeMeasure> <http://www.w3.org/2004/02/skos/core#prefLabel> "Quantitative Measure" .
+<http://example.org/medical/hdl> <http://www.w3.org/2004/02/skos/core#prefLabel> "HDL cholesterol" .
+<http://example.org/medical/joint_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Arthralgia" .
+<http://example.org/medical/sore_throat> <http://www.w3.org/2000/01/rdf-schema#label> "Sore throat" .
+<http://example.org/medical/diarrhea> <http://www.w3.org/2004/02/skos/core#prefLabel> "Diarrhea" .
+<http://example.org/medical/oxygen_saturation> <http://www.w3.org/2004/02/skos/core#altLabel> "Pulse oximetry" .
+<http://example.org/medical/weight_loss> <http://www.w3.org/2004/02/skos/core#prefLabel> "Weight loss" .
+<http://example.org/medical/xray> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/aspirin> <http://www.w3.org/2004/02/skos/core#prefLabel> "Aspirin" .
+<http://example.org/medical/fever> <http://www.w3.org/2004/02/skos/core#altLabel> "High temperature" .
+<http://example.org/medical/hypertension> <http://www.w3.org/2004/02/skos/core#altLabel> "Elevated blood pressure" .
+<http://example.org/medical/weight_gain> <http://www.w3.org/2004/02/skos/core#altLabel> "Gaining weight" .
+<http://example.org/medical/anemia> <http://www.w3.org/2004/02/skos/core#prefLabel> "Anemia" .
+<http://example.org/medical/heparin> <http://www.w3.org/2004/02/skos/core#prefLabel> "Heparin" .
+<http://example.org/medical/vomiting> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/blood_test> <http://www.w3.org/2004/02/skos/core#altLabel> "Blood panel" .
+<http://example.org/medical/epilepsy> <http://www.w3.org/2004/02/skos/core#altLabel> "Seizure disorder" .
+<http://example.org/medical/diabetes_type_2> <http://www.w3.org/2004/02/skos/core#altLabel> "T2DM" .
+<http://example.org/medical/electrocardiogram> <http://www.w3.org/2004/02/skos/core#altLabel> "ECG" .
+<http://example.org/medical/types/QuantitativeMeasure> <http://www.w3.org/2004/02/skos/core#altLabel> "ExaminationMeasure" .
+<http://example.org/medical/diarrhea> <http://www.w3.org/2004/02/skos/core#altLabel> "Loose stools" .
+<http://example.org/medical/diabetes_mellitus> <http://www.w3.org/2004/02/skos/core#altLabel> "Sugar diabetes" .
+<http://example.org/medical/intubation> <http://www.w3.org/2004/02/skos/core#altLabel> "Endotracheal intubation" .
+<http://example.org/medical/constipation> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/oxygen_saturation> <http://www.w3.org/2004/02/skos/core#prefLabel> "Oxygen saturation" .
+<http://example.org/medical/anxiety> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/electrocardiogram> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/respiratory_rate> <http://www.w3.org/2004/02/skos/core#altLabel> "RR" .
+<http://example.org/medical/mri> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/swelling> <http://www.w3.org/2004/02/skos/core#altLabel> "Swollen" .
+<http://example.org/medical/heart_rate> <http://www.w3.org/2004/02/skos/core#prefLabel> "Heart rate" .
+<http://example.org/medical/sore_throat> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/lumbar_puncture> <http://www.w3.org/2004/02/skos/core#prefLabel> "Lumbar puncture" .
+<http://example.org/medical/swelling> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/creatinine> <http://www.w3.org/2004/02/skos/core#altLabel> "Serum creatinine" .
+<http://example.org/medical/morphine> <http://www.w3.org/2004/02/skos/core#altLabel> "MS Contin" .
+<http://example.org/medical/nausea> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/troponin> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/anemia> <http://www.w3.org/2000/01/rdf-schema#label> "Anemia" .
+<http://example.org/medical/vomiting> <http://www.w3.org/2004/02/skos/core#prefLabel> "Vomiting" .
+<http://example.org/medical/blood_pressure> <http://www.w3.org/2000/01/rdf-schema#label> "Blood pressure" .
+<http://example.org/medical/swelling> <http://www.w3.org/2000/01/rdf-schema#label> "Swelling" .
+<http://example.org/medical/epilepsy> <http://www.w3.org/2000/01/rdf-schema#label> "Epilepsy" .
+<http://example.org/medical/glucose> <http://www.w3.org/2004/02/skos/core#altLabel> "Dextrose" .
+<http://example.org/medical/joint_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Joint ache" .
+<http://example.org/medical/rash> <http://www.w3.org/2000/01/rdf-schema#label> "Rash" .
+<http://example.org/medical/contrast_agent> <http://www.w3.org/2000/01/rdf-schema#label> "Contrast agent" .
+<http://example.org/medical/sodium> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/nausea> <http://www.w3.org/2004/02/skos/core#prefLabel> "Nausea" .
+<http://example.org/medical/myocardial_infarction> <http://www.w3.org/2004/02/skos/core#altLabel> "Cardiac infarction" .
+<http://example.org/medical/weight> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/aspirin> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/ldl> <http://www.w3.org/2004/02/skos/core#altLabel> "Low-density lipoprotein" .
+<http://example.org/medical/morphine> <http://www.w3.org/2004/02/skos/core#prefLabel> "Morphine" .
+<http://example.org/medical/back_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Lumbago" .
+<http://example.org/medical/blood_glucose> <http://www.w3.org/2004/02/skos/core#prefLabel> "Blood glucose level" .
+<http://example.org/medical/fatigue> <http://www.w3.org/2004/02/skos/core#prefLabel> "Fatigue" .
+<http://example.org/medical/pneumonia> <http://www.w3.org/2000/01/rdf-schema#label> "Pneumonia" .
+<http://example.org/medical/fever> <http://www.w3.org/2004/02/skos/core#altLabel> "Pyrexia" .
+<http://example.org/medical/shortness_of_breath> <http://www.w3.org/2000/01/rdf-schema#label> "Shortness of breath" .
+<http://example.org/medical/hdl> <http://www.w3.org/2004/02/skos/core#altLabel> "HDL" .
+<http://example.org/medical/chemotherapy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/hba1c> <http://www.w3.org/2004/02/skos/core#altLabel> "HbA1c" .
+<http://example.org/medical/pneumonia> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/muscle_pain> <http://www.w3.org/2004/02/skos/core#prefLabel> "Muscle pain" .
+<http://example.org/medical/cancer> <http://www.w3.org/2004/02/skos/core#prefLabel> "Cancer" .
+<http://example.org/medical/temperature> <http://www.w3.org/2004/02/skos/core#prefLabel> "Body temperature" .
+<http://example.org/medical/prednisone> <http://www.w3.org/2004/02/skos/core#prefLabel> "Prednisone" .
+<http://example.org/medical/blood_test> <http://www.w3.org/2000/01/rdf-schema#label> "Blood test" .
+<http://example.org/medical/blurred_vision> <http://www.w3.org/2000/01/rdf-schema#label> "Blurred vision" .
+<http://example.org/medical/oxygen> <http://www.w3.org/2004/02/skos/core#altLabel> "O2" .
+<http://example.org/medical/types/QuantitativeMeasure> <http://www.w3.org/2004/02/skos/core#altLabel> "Parameter" .
+<http://example.org/medical/rheumatoid_arthritis> <http://www.w3.org/2004/02/skos/core#prefLabel> "Rheumatoid arthritis" .
+<http://example.org/medical/creatinine> <http://www.w3.org/2004/02/skos/core#prefLabel> "Creatinine" .
+<http://example.org/medical/lumbar_puncture> <http://www.w3.org/2004/02/skos/core#altLabel> "Spinal tap" .
+<http://example.org/medical/sodium> <http://www.w3.org/2000/01/rdf-schema#label> "Sodium" .
+<http://example.org/medical/insulin> <http://www.w3.org/2004/02/skos/core#altLabel> "Regular insulin" .
+<http://example.org/medical/height> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/rash> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/chemotherapy> <http://www.w3.org/2004/02/skos/core#altLabel> "Chemo" .
+<http://example.org/medical/myocardial_infarction> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/pet_scan> <http://www.w3.org/2004/02/skos/core#altLabel> "PET scan" .
+<http://example.org/medical/oxygen> <http://www.w3.org/2004/02/skos/core#altLabel> "Supplemental oxygen" .
+<http://example.org/medical/blood_glucose> <http://www.w3.org/2000/01/rdf-schema#label> "Blood glucose" .
+<http://example.org/medical/stroke> <http://www.w3.org/2000/01/rdf-schema#label> "Stroke" .
+<http://example.org/medical/palpitations> <http://www.w3.org/2004/02/skos/core#altLabel> "Heart palpitations" .
+<http://example.org/medical/saline> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/morphine> <http://www.w3.org/2000/01/rdf-schema#label> "Morphine" .
+<http://example.org/medical/osteoarthritis> <http://www.w3.org/2004/02/skos/core#prefLabel> "Osteoarthritis" .
+<http://example.org/medical/arthritis> <http://www.w3.org/2004/02/skos/core#altLabel> "Joint inflammation" .
+<http://example.org/medical/mri> <http://www.w3.org/2004/02/skos/core#prefLabel> "Magnetic Resonance Imaging" .
+<http://example.org/medical/heart_failure> <http://www.w3.org/2004/02/skos/core#prefLabel> "Heart failure" .
+<http://example.org/medical/runny_nose> <http://www.w3.org/2004/02/skos/core#altLabel> "Rhinorrhea" .
+<http://example.org/medical/temperature> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/chemotherapy> <http://www.w3.org/2004/02/skos/core#prefLabel> "Chemotherapy" .
+<http://example.org/medical/echocardiogram> <http://www.w3.org/2004/02/skos/core#prefLabel> "Echocardiogram" .
+<http://example.org/medical/asthma> <http://www.w3.org/2004/02/skos/core#altLabel> "Asthmatic" .
+<http://example.org/medical/blood_glucose> <http://www.w3.org/2004/02/skos/core#altLabel> "Glucose level" .
+<http://example.org/medical/joint_pain> <http://www.w3.org/2000/01/rdf-schema#label> "Joint pain" .
+<http://example.org/medical/loss_of_appetite> <http://www.w3.org/2004/02/skos/core#prefLabel> "Loss of appetite" .
+<http://example.org/medical/ldl> <http://www.w3.org/2004/02/skos/core#altLabel> "Bad cholesterol" .
+<http://example.org/medical/types/Procedure> <http://www.w3.org/2004/02/skos/core#prefLabel> "Procedure" .
+<http://example.org/medical/metformin> <http://www.w3.org/2004/02/skos/core#prefLabel> "Metformin" .
+<http://example.org/medical/azithromycin> <http://www.w3.org/2000/01/rdf-schema#label> "Azithromycin" .
+<http://example.org/medical/triglycerides> <http://www.w3.org/2004/02/skos/core#altLabel> "Trigs" .
+<http://example.org/medical/types/Finding> <http://www.w3.org/2000/01/rdf-schema#label> "Finding" .
+<http://example.org/medical/morphine> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/wbc> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/azithromycin> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/constipation> <http://www.w3.org/2000/01/rdf-schema#label> "Constipation" .
+<http://example.org/medical/atorvastatin> <http://www.w3.org/2004/02/skos/core#prefLabel> "Atorvastatin" .
+<http://example.org/medical/community_acquired_pneumonia_1771357024115> <http://www.w3.org/2000/01/rdf-schema#label> "community-acquired pneumonia" .
+<http://example.org/medical/fever> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/kidney_disease> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/blood_pressure> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/ibuprofen> <http://www.w3.org/2004/02/skos/core#altLabel> "Motrin" .
+<http://example.org/medical/hdl> <http://www.w3.org/2004/02/skos/core#altLabel> "Good cholesterol" .
+<http://example.org/medical/diabetes_type_2> <http://www.w3.org/2004/02/skos/core#prefLabel> "Type 2 Diabetes Mellitus" .
+<http://example.org/medical/catheterization> <http://www.w3.org/2004/02/skos/core#altLabel> "Cardiac catheterization" .
+<http://example.org/medical/blood_pressure> <http://www.w3.org/2004/02/skos/core#altLabel> "Arterial pressure" .
+<http://example.org/medical/atrial_fibrillation> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/alzheimer> <http://www.w3.org/2004/02/skos/core#altLabel> "Alzheimer" .
+<http://example.org/medical/inr> <http://www.w3.org/2000/01/rdf-schema#label> "INR" .
+<http://example.org/medical/troponin> <http://www.w3.org/2000/01/rdf-schema#label> "Troponin" .
+<http://example.org/medical/mammography> <http://www.w3.org/2004/02/skos/core#prefLabel> "Mammography" .
+<http://example.org/medical/height> <http://www.w3.org/2004/02/skos/core#altLabel> "Ht" .
+<http://example.org/medical/hba1c> <http://www.w3.org/2004/02/skos/core#altLabel> "Glycated hemoglobin" .
+<http://example.org/medical/triglycerides> <http://www.w3.org/2004/02/skos/core#prefLabel> "Triglycerides" .
+<http://example.org/medical/copd> <http://www.w3.org/2000/01/rdf-schema#label> "COPD" .
+<http://example.org/medical/amlodipine> <http://www.w3.org/2004/02/skos/core#prefLabel> "Amlodipine" .
+<http://example.org/medical/saline> <http://www.w3.org/2004/02/skos/core#altLabel> "0.9% sodium chloride" .
+<http://example.org/medical/pet_scan> <http://www.w3.org/2000/01/rdf-schema#label> "PET scan" .
+<http://example.org/medical/types/QuantitativeMeasure> <http://www.w3.org/2004/02/skos/core#definition> "Quantitative measurement recorded" .
+<http://example.org/medical/hba1c> <http://www.w3.org/2004/02/skos/core#prefLabel> "Hemoglobin A1c" .
+<http://example.org/medical/dizziness> <http://www.w3.org/2004/02/skos/core#prefLabel> "Dizziness" .
+<http://example.org/medical/hypertension> <http://www.w3.org/2000/01/rdf-schema#label> "Hypertension" .
+<http://example.org/medical/diabetes_type_2> <http://www.w3.org/2004/02/skos/core#altLabel> "Non-insulin-dependent diabetes" .
+<http://example.org/medical/heart_rate> <http://www.w3.org/2004/02/skos/core#altLabel> "HR" .
+<http://example.org/medical/kidney_disease> <http://www.w3.org/2004/02/skos/core#prefLabel> "Chronic kidney disease" .
+<http://example.org/medical/omeprazole> <http://www.w3.org/2004/02/skos/core#altLabel> "Proton pump inhibitor" .
+<http://example.org/medical/amoxicillin> <http://www.w3.org/2000/01/rdf-schema#label> "Amoxicillin" .
+<http://example.org/medical/lisinopril> <http://www.w3.org/2004/02/skos/core#altLabel> "Prinivil" .
+<http://example.org/medical/xray> <http://www.w3.org/2004/02/skos/core#altLabel> "Radiograph" .
+<http://example.org/medical/dizziness> <http://www.w3.org/2004/02/skos/core#altLabel> "Vertigo" .
+<http://example.org/medical/blood_pressure> <http://www.w3.org/2004/02/skos/core#altLabel> "Systolic/diastolic" .
+<http://example.org/medical/endometriomas_1769863533552> <http://www.w3.org/2004/02/skos/core#prefLabel> "endometriomas" .
+<http://example.org/medical/potassium> <http://www.w3.org/2000/01/rdf-schema#label> "Potassium" .
+<http://example.org/medical/platelet_count> <http://www.w3.org/2000/01/rdf-schema#label> "Platelet count" .
+<http://example.org/medical/weight_gain> <http://www.w3.org/2000/01/rdf-schema#label> "Weight gain" .
+<http://example.org/medical/types/Finding> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<http://example.org/medical/electrocardiogram> <http://www.w3.org/2004/02/skos/core#prefLabel> "Electrocardiogram" .
+<http://example.org/medical/copd> <http://www.w3.org/2004/02/skos/core#altLabel> "Chronic bronchitis" .
+<http://example.org/medical/catheterization> <http://www.w3.org/2004/02/skos/core#prefLabel> "Catheterization" .
+<http://example.org/medical/oxygen_saturation> <http://www.w3.org/2004/02/skos/core#altLabel> "SpO2" .
+<http://example.org/medical/metformin> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/rheumatoid_arthritis> <http://www.w3.org/2004/02/skos/core#altLabel> "Rheumatoid disease" .
+<http://example.org/medical/types/Disease> <http://www.w3.org/2004/02/skos/core#definition> "Pathological or medical condition identified" .
+<http://example.org/medical/cancer> <http://www.w3.org/2004/02/skos/core#altLabel> "Neoplasm" .
+<http://example.org/medical/temperature> <http://www.w3.org/2004/02/skos/core#altLabel> "Temp" .
+<http://example.org/medical/wbc> <http://www.w3.org/2004/02/skos/core#altLabel> "Leukocyte count" .
+<http://example.org/medical/saline> <http://www.w3.org/2004/02/skos/core#altLabel> "Saline solution" .
+<http://example.org/medical/ibuprofen> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/physical_therapy> <http://www.w3.org/2004/02/skos/core#altLabel> "Physiotherapy" .
+<http://example.org/medical/hdl> <http://www.w3.org/2000/01/rdf-schema#label> "HDL" .
+<http://example.org/medical/myocardial_infarction> <http://www.w3.org/2004/02/skos/core#prefLabel> "Myocardial infarction" .
+<http://example.org/medical/fatigue> <http://www.w3.org/2004/02/skos/core#altLabel> "Malaise" .
+<http://example.org/medical/troponin> <http://www.w3.org/2004/02/skos/core#altLabel> "Cardiac troponin" .
+<http://example.org/medical/respiratory_rate> <http://www.w3.org/2004/02/skos/core#altLabel> "Breathing rate" .
+<http://example.org/medical/prednisone> <http://www.w3.org/2004/02/skos/core#altLabel> "Steroid" .
+<http://example.org/medical/hypothyroidism> <http://www.w3.org/2004/02/skos/core#altLabel> "Low thyroid" .
+<http://example.org/medical/aspirin> <http://www.w3.org/2004/02/skos/core#altLabel> "Acetylsalicylic acid" .
+<http://example.org/medical/back_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Lumbar pain" .
+<http://example.org/medical/dizziness> <http://www.w3.org/2004/02/skos/core#altLabel> "Dizzy" .
+<http://example.org/medical/chemotherapy> <http://www.w3.org/2004/02/skos/core#altLabel> "Cancer treatment" .
+<http://example.org/medical/surgery> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/heart_failure> <http://www.w3.org/2004/02/skos/core#altLabel> "Cardiac failure" .
+<http://example.org/medical/hypertension> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/contrast_agent> <http://www.w3.org/2004/02/skos/core#altLabel> "Contrast dye" .
+<http://example.org/medical/types/Substance> <http://www.w3.org/2004/02/skos/core#altLabel> "Drug" .
+<http://example.org/medical/colonoscopy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/heart_failure> <http://www.w3.org/2004/02/skos/core#altLabel> "Congestive heart failure" .
+<http://example.org/medical/endometriosis_1769843855667> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/abdominal_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Belly pain" .
+<http://example.org/medical/aspirin> <http://www.w3.org/2004/02/skos/core#altLabel> "Bayer" .
+<http://example.org/medical/gfr> <http://www.w3.org/2004/02/skos/core#prefLabel> "Glomerular filtration rate" .
+<http://example.org/medical/swelling> <http://www.w3.org/2004/02/skos/core#altLabel> "Edema" .
+<http://example.org/medical/ultrasound> <http://www.w3.org/2004/02/skos/core#altLabel> "US" .
+<http://example.org/medical/pet_scan> <http://www.w3.org/2004/02/skos/core#altLabel> "PET" .
+<http://example.org/medical/myocardial_infarction> <http://www.w3.org/2004/02/skos/core#altLabel> "Heart attack" .
+<http://example.org/medical/pneumonia> <http://www.w3.org/2004/02/skos/core#altLabel> "Lung infection" .
+<http://example.org/medical/blood_pressure> <http://www.w3.org/2004/02/skos/core#prefLabel> "Blood pressure" .
+<http://example.org/medical/numbness> <http://www.w3.org/2000/01/rdf-schema#label> "Numbness" .
+<http://example.org/medical/shortness_of_breath> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/runny_nose> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/ultrasound> <http://www.w3.org/2004/02/skos/core#altLabel> "Ultrasonography" .
+<http://example.org/medical/heart_failure> <http://www.w3.org/2004/02/skos/core#altLabel> "CHF" .
+<http://example.org/medical/cholesterol> <http://www.w3.org/2004/02/skos/core#prefLabel> "Total cholesterol" .
+<http://example.org/medical/ct_scan> <http://www.w3.org/2004/02/skos/core#altLabel> "CT" .
+<http://example.org/medical/surgery> <http://www.w3.org/2004/02/skos/core#altLabel> "Operation" .
+<http://example.org/medical/xray> <http://www.w3.org/2004/02/skos/core#altLabel> "Plain film" .
+<http://example.org/medical/respiratory_rate> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/hba1c> <http://www.w3.org/2000/01/rdf-schema#label> "HbA1c" .
+<http://example.org/medical/omeprazole> <http://www.w3.org/2000/01/rdf-schema#label> "Omeprazole" .
+<http://example.org/medical/weight> <http://www.w3.org/2004/02/skos/core#altLabel> "Wt" .
+<http://example.org/medical/respiratory_rate> <http://www.w3.org/2000/01/rdf-schema#label> "Respiratory rate" .
+<http://example.org/medical/blurred_vision> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/diabetes_mellitus> <http://www.w3.org/2004/02/skos/core#altLabel> "Diabetes" .
+<http://example.org/medical/anxiety> <http://www.w3.org/2004/02/skos/core#altLabel> "GAD" .
+<http://example.org/medical/colonoscopy> <http://www.w3.org/2000/01/rdf-schema#label> "Colonoscopy" .
+<http://example.org/medical/anemia> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/lisinopril> <http://www.w3.org/2000/01/rdf-schema#label> "Lisinopril" .
+<http://example.org/medical/atrial_fibrillation> <http://www.w3.org/2004/02/skos/core#altLabel> "A-fib" .
+<http://example.org/medical/insulin> <http://www.w3.org/2000/01/rdf-schema#label> "Insulin" .
+<http://example.org/medical/shortness_of_breath> <http://www.w3.org/2004/02/skos/core#prefLabel> "Shortness of breath" .
+<http://example.org/medical/fatigue> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/respiratory_rate> <http://www.w3.org/2004/02/skos/core#altLabel> "Breaths per minute" .
+<http://example.org/medical/cough> <http://www.w3.org/2004/02/skos/core#altLabel> "Coughing" .
+<http://example.org/medical/hemoglobin> <http://www.w3.org/2004/02/skos/core#altLabel> "Hb" .
+<http://example.org/medical/asthma> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/dialysis> <http://www.w3.org/2000/01/rdf-schema#label> "Dialysis" .
+<http://example.org/medical/types/Procedure> <http://www.w3.org/2004/02/skos/core#altLabel> "LaboratoryProcedure" .
+<http://example.org/medical/catheterization> <http://www.w3.org/2004/02/skos/core#altLabel> "Cath" .
+<http://example.org/medical/heart_failure> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/platelet_count> <http://www.w3.org/2004/02/skos/core#altLabel> "Thrombocyte count" .
+<http://example.org/medical/abdominal_pain> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/hyperthyroidism> <http://www.w3.org/2004/02/skos/core#altLabel> "Thyrotoxicosis" .
+<http://example.org/medical/hemoglobin> <http://www.w3.org/2000/01/rdf-schema#label> "Hemoglobin" .
+<http://example.org/medical/copd> <http://www.w3.org/2004/02/skos/core#prefLabel> "Chronic Obstructive Pulmonary Disease" .
+<http://example.org/medical/amoxicillin> <http://www.w3.org/2004/02/skos/core#altLabel> "Antibiotic" .
+<http://example.org/medical/contrast_agent> <http://www.w3.org/2004/02/skos/core#prefLabel> "Contrast agent" .
+<http://example.org/medical/rash> <http://www.w3.org/2004/02/skos/core#prefLabel> "Rash" .
+<http://example.org/medical/stroke> <http://www.w3.org/2004/02/skos/core#altLabel> "CVA" .
+<http://example.org/medical/chest_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Chest discomfort" .
+<http://example.org/medical/epilepsy> <http://www.w3.org/2004/02/skos/core#altLabel> "Epileptic" .
+<http://example.org/medical/kidney_disease> <http://www.w3.org/2004/02/skos/core#altLabel> "Kidney failure" .
+<http://example.org/medical/sore_throat> <http://www.w3.org/2004/02/skos/core#prefLabel> "Sore throat" .
+<http://example.org/medical/paracetamol> <http://www.w3.org/2004/02/skos/core#altLabel> "APAP" .
+<http://example.org/medical/types/Disease> <http://www.w3.org/2000/01/rdf-schema#label> "Disease" .
+<http://example.org/medical/swelling> <http://www.w3.org/2004/02/skos/core#prefLabel> "Swelling" .
+<http://example.org/medical/headache> <http://www.w3.org/2004/02/skos/core#altLabel> "Cephalalgia" .
+<http://example.org/medical/mri> <http://www.w3.org/2004/02/skos/core#altLabel> "MRI scan" .
+<http://example.org/medical/epilepsy> <http://www.w3.org/2004/02/skos/core#prefLabel> "Epilepsy" .
+<http://example.org/medical/types/Procedure> <http://www.w3.org/2004/02/skos/core#altLabel> "ImagingProcedure" .
+<http://example.org/medical/anemia> <http://www.w3.org/2004/02/skos/core#altLabel> "Anaemia" .
+<http://example.org/medical/metformin> <http://www.w3.org/2004/02/skos/core#altLabel> "Metformin HCl" .
+<http://example.org/medical/amlodipine> <http://www.w3.org/2004/02/skos/core#altLabel> "Norvasc" .
+<http://example.org/medical/amoxicillin> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/catheterization> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/shortness_of_breath> <http://www.w3.org/2004/02/skos/core#altLabel> "Difficulty breathing" .
+<http://example.org/medical/shortness_of_breath> <http://www.w3.org/2004/02/skos/core#altLabel> "Breathlessness" .
+<http://example.org/medical/hdl> <http://www.w3.org/2004/02/skos/core#altLabel> "High-density lipoprotein" .
+<http://example.org/medical/myocardial_infarction> <http://www.w3.org/2004/02/skos/core#altLabel> "MI" .
+<http://example.org/medical/blood_test> <http://www.w3.org/2004/02/skos/core#prefLabel> "Blood test" .
+<http://example.org/medical/anxiety> <http://www.w3.org/2004/02/skos/core#altLabel> "Anxiety" .
+<http://example.org/medical/blurred_vision> <http://www.w3.org/2004/02/skos/core#prefLabel> "Blurred vision" .
+<http://example.org/medical/headache> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/angiography> <http://www.w3.org/2004/02/skos/core#altLabel> "Arteriography" .
+<http://example.org/medical/endometriosis_1769843855667> <http://www.w3.org/2000/01/rdf-schema#label> "endometriosis" .
+<http://example.org/medical/surgery> <http://www.w3.org/2000/01/rdf-schema#label> "Surgery" .
+<http://example.org/medical/parkinson> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/echocardiogram> <http://www.w3.org/2004/02/skos/core#altLabel> "Heart ultrasound" .
+<http://example.org/medical/warfarin> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/mammography> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/loss_of_appetite> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/ultrasound> <http://www.w3.org/2004/02/skos/core#altLabel> "Sonography" .
+<http://example.org/medical/height> <http://www.w3.org/2004/02/skos/core#altLabel> "Stature" .
+<http://example.org/medical/asthma> <http://www.w3.org/2000/01/rdf-schema#label> "Asthma" .
+<http://example.org/medical/oxygen_saturation> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/insulin> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/contrast_agent> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/palpitations> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/biopsy> <http://www.w3.org/2000/01/rdf-schema#label> "Biopsy" .
+<http://example.org/medical/biopsy> <http://www.w3.org/2004/02/skos/core#altLabel> "Tissue sample" .
+<http://example.org/medical/potassium> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/abdominal_pain> <http://www.w3.org/2000/01/rdf-schema#label> "Abdominal pain" .
+<http://example.org/medical/osteoarthritis> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/stroke> <http://www.w3.org/2004/02/skos/core#altLabel> "Cerebral infarction" .
+<http://example.org/medical/alzheimer> <http://www.w3.org/2000/01/rdf-schema#label> "Alzheimer's disease" .
+<http://example.org/medical/hyperthyroidism> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/inr> <http://www.w3.org/2004/02/skos/core#altLabel> "INR" .
+<http://example.org/medical/amoxicillin> <http://www.w3.org/2004/02/skos/core#prefLabel> "Amoxicillin" .
+<http://example.org/medical/mammography> <http://www.w3.org/2004/02/skos/core#altLabel> "Breast imaging" .
+<http://example.org/medical/diabetes_type_1> <http://www.w3.org/2004/02/skos/core#altLabel> "T1DM" .
+<http://example.org/medical/headache> <http://www.w3.org/2004/02/skos/core#altLabel> "Cephalgia" .
+<http://example.org/medical/endoscopy> <http://www.w3.org/2000/01/rdf-schema#label> "Endoscopy" .
+<http://example.org/medical/lisinopril> <http://www.w3.org/2004/02/skos/core#altLabel> "Zestril" .
+<http://example.org/medical/cough> <http://www.w3.org/2000/01/rdf-schema#label> "Cough" .
+<http://example.org/medical/vaccination> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/diabetes_type_1> <http://www.w3.org/2004/02/skos/core#altLabel> "Juvenile diabetes" .
+<http://example.org/medical/joint_pain> <http://www.w3.org/2004/02/skos/core#prefLabel> "Joint pain" .
+<http://example.org/medical/pneumonia> <http://www.w3.org/2004/02/skos/core#prefLabel> "Pneumonia" .
+<http://example.org/medical/heparin> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Substance> .
+<http://example.org/medical/troponin> <http://www.w3.org/2004/02/skos/core#altLabel> "TnT" .
+<http://example.org/medical/loss_of_appetite> <http://www.w3.org/2004/02/skos/core#altLabel> "Decreased appetite" .
+<http://example.org/medical/types/QuantitativeMeasure> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Class> .
+<http://example.org/medical/depression> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/oxygen_saturation> <http://www.w3.org/2004/02/skos/core#altLabel> "Sat" .
+<http://example.org/medical/weight_loss> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/creatinine> <http://www.w3.org/2004/02/skos/core#altLabel> "Cr" .
+<http://example.org/medical/bmi> <http://www.w3.org/2004/02/skos/core#altLabel> "BMI" .
+<http://example.org/medical/depression> <http://www.w3.org/2004/02/skos/core#altLabel> "MDD" .
+<http://example.org/medical/hypothyroidism> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/insomnia> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/diabetes_type_2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/kidney_disease> <http://www.w3.org/2004/02/skos/core#altLabel> "Renal failure" .
+<http://example.org/medical/radiation_therapy> <http://www.w3.org/2000/01/rdf-schema#label> "Radiation therapy" .
+<http://example.org/medical/types/Finding> <http://www.w3.org/2004/02/skos/core#definition> "Clinical observation described in a report (e.g., fever, coughing, back pain)" .
+<http://example.org/medical/physical_therapy> <http://www.w3.org/2000/01/rdf-schema#label> "Physical therapy" .
+<http://example.org/medical/types/Finding> <http://www.w3.org/2004/02/skos/core#prefLabel> "Finding" .
+<http://example.org/medical/blood_pressure> <http://www.w3.org/2004/02/skos/core#altLabel> "BP" .
+<http://example.org/medical/xray> <http://www.w3.org/2004/02/skos/core#altLabel> "X ray" .
+<http://example.org/medical/ultrasound> <http://www.w3.org/2000/01/rdf-schema#label> "Ultrasound" .
+<http://example.org/medical/troponin> <http://www.w3.org/2004/02/skos/core#prefLabel> "Troponin" .
+<http://example.org/medical/sodium> <http://www.w3.org/2004/02/skos/core#altLabel> "Na+" .
+<http://example.org/medical/abdominal_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Abdominal discomfort" .
+<http://example.org/medical/sodium> <http://www.w3.org/2004/02/skos/core#prefLabel> "Sodium" .
+<http://example.org/medical/loss_of_appetite> <http://www.w3.org/2004/02/skos/core#altLabel> "Anorexia" .
+<http://example.org/medical/warfarin> <http://www.w3.org/2004/02/skos/core#altLabel> "Blood thinner" .
+<http://example.org/medical/stroke> <http://www.w3.org/2004/02/skos/core#prefLabel> "Stroke" .
+<http://example.org/medical/abdominal_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Stomach pain" .
+<http://example.org/medical/osteoarthritis> <http://www.w3.org/2004/02/skos/core#altLabel> "Degenerative joint disease" .
+<http://example.org/medical/xray> <http://www.w3.org/2000/01/rdf-schema#label> "X-ray" .
+<http://example.org/medical/osteoarthritis> <http://www.w3.org/2004/02/skos/core#altLabel> "OA" .
+<http://example.org/medical/anxiety> <http://www.w3.org/2004/02/skos/core#altLabel> "Generalized anxiety disorder" .
+<http://example.org/medical/fatigue> <http://www.w3.org/2004/02/skos/core#altLabel> "Tiredness" .
+<http://example.org/medical/numbness> <http://www.w3.org/2004/02/skos/core#altLabel> "Tingling" .
+<http://example.org/medical/sore_throat> <http://www.w3.org/2004/02/skos/core#altLabel> "Throat pain" .
+<http://example.org/medical/potassium> <http://www.w3.org/2004/02/skos/core#prefLabel> "Potassium" .
+<http://example.org/medical/nausea> <http://www.w3.org/2004/02/skos/core#altLabel> "Nauseous" .
+<http://example.org/medical/mri> <http://www.w3.org/2004/02/skos/core#altLabel> "MR scan" .
+<http://example.org/medical/weight_gain> <http://www.w3.org/2004/02/skos/core#prefLabel> "Weight gain" .
+<http://example.org/medical/hypertension> <http://www.w3.org/2004/02/skos/core#altLabel> "High blood pressure" .
+<http://example.org/medical/inr> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/hypertension> <http://www.w3.org/2004/02/skos/core#prefLabel> "Hypertension" .
+<http://example.org/medical/fatigue> <http://www.w3.org/2004/02/skos/core#altLabel> "Exhaustion" .
+<http://example.org/medical/rheumatoid_arthritis> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/blurred_vision> <http://www.w3.org/2004/02/skos/core#altLabel> "Vision blurring" .
+<http://example.org/medical/ibuprofen> <http://www.w3.org/2004/02/skos/core#prefLabel> "Ibuprofen" .
+<http://example.org/medical/biopsy> <http://www.w3.org/2004/02/skos/core#altLabel> "Tissue biopsy" .
+<http://example.org/medical/gfr> <http://www.w3.org/2000/01/rdf-schema#label> "GFR" .
+<http://example.org/medical/morphine> <http://www.w3.org/2004/02/skos/core#altLabel> "Morphine sulfate" .
+<http://example.org/medical/heart_rate> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/glucose> <http://www.w3.org/2000/01/rdf-schema#label> "Glucose" .
+<http://example.org/medical/surgery> <http://www.w3.org/2004/02/skos/core#altLabel> "Surgical intervention" .
+<http://example.org/medical/azithromycin> <http://www.w3.org/2004/02/skos/core#prefLabel> "Azithromycin" .
+<http://example.org/medical/ct_scan> <http://www.w3.org/2004/02/skos/core#altLabel> "CAT scan" .
+<http://example.org/medical/vaccination> <http://www.w3.org/2004/02/skos/core#altLabel> "Immunization" .
+<http://example.org/medical/fever> <http://www.w3.org/2004/02/skos/core#altLabel> "Febrile" .
+<http://example.org/medical/numbness> <http://www.w3.org/2004/02/skos/core#prefLabel> "Numbness" .
+<http://example.org/medical/anxiety> <http://www.w3.org/2000/01/rdf-schema#label> "Anxiety disorder" .
+<http://example.org/medical/weight_loss> <http://www.w3.org/2004/02/skos/core#altLabel> "Unintentional weight loss" .
+<http://example.org/medical/constipation> <http://www.w3.org/2004/02/skos/core#prefLabel> "Constipation" .
+<http://example.org/medical/alzheimer> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/lumbar_puncture> <http://www.w3.org/2004/02/skos/core#altLabel> "LP" .
+<http://example.org/medical/triglycerides> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/alzheimer> <http://www.w3.org/2004/02/skos/core#altLabel> "Alzheimers" .
+<http://example.org/medical/blood_test> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Procedure> .
+<http://example.org/medical/back_pain> <http://www.w3.org/2000/01/rdf-schema#label> "Back pain" .
+<http://example.org/medical/bmi> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/ultrasound_scan_1769863523283> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/rheumatoid_arthritis> <http://www.w3.org/2004/02/skos/core#altLabel> "RA" .
+<http://example.org/medical/amoxicillin> <http://www.w3.org/2004/02/skos/core#altLabel> "Amoxil" .
+<http://example.org/medical/omeprazole> <http://www.w3.org/2004/02/skos/core#prefLabel> "Omeprazole" .
+<http://example.org/medical/hba1c> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/rash> <http://www.w3.org/2004/02/skos/core#altLabel> "Skin rash" .
+<http://example.org/medical/copd> <http://www.w3.org/2004/02/skos/core#altLabel> "Emphysema" .
+<http://example.org/medical/colonoscopy> <http://www.w3.org/2004/02/skos/core#prefLabel> "Colonoscopy" .
+<http://example.org/medical/gfr> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/QuantitativeMeasure> .
+<http://example.org/medical/glucose> <http://www.w3.org/2004/02/skos/core#altLabel> "Blood sugar" .
+<http://example.org/medical/ct_scan> <http://www.w3.org/2004/02/skos/core#prefLabel> "Computed Tomography" .
+<http://example.org/medical/depression> <http://www.w3.org/2004/02/skos/core#altLabel> "Clinical depression" .
+<http://example.org/medical/ibuprofen> <http://www.w3.org/2000/01/rdf-schema#label> "Ibuprofen" .
+<http://example.org/medical/myocardial_infarction> <http://www.w3.org/2004/02/skos/core#altLabel> "Acute myocardial infarction" .
+<http://example.org/medical/ldl> <http://www.w3.org/2004/02/skos/core#altLabel> "LDL" .
+<http://example.org/medical/aspirin> <http://www.w3.org/2004/02/skos/core#altLabel> "ASA" .
+<http://example.org/medical/inr> <http://www.w3.org/2004/02/skos/core#altLabel> "Prothrombin time" .
+<http://example.org/medical/kidney_disease> <http://www.w3.org/2004/02/skos/core#altLabel> "CKD" .
+<http://example.org/medical/chest_pain> <http://www.w3.org/2000/01/rdf-schema#label> "Chest pain" .
+<http://example.org/medical/arthritis> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/arthritis> <http://www.w3.org/2000/01/rdf-schema#label> "Arthritis" .
+<http://example.org/medical/arthritis> <http://www.w3.org/2004/02/skos/core#altLabel> "Arthritic" .
+<http://example.org/medical/heart_rate> <http://www.w3.org/2004/02/skos/core#altLabel> "Pulse" .
+<http://example.org/medical/chest_pain> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/cough> <http://www.w3.org/2004/02/skos/core#altLabel> "Dry cough" .
+<http://example.org/medical/ct_scan> <http://www.w3.org/2004/02/skos/core#altLabel> "Computed tomography scan" .
+<http://example.org/medical/joint_pain> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Finding> .
+<http://example.org/medical/platelet_count> <http://www.w3.org/2004/02/skos/core#prefLabel> "Platelet count" .
+<http://example.org/medical/insomnia> <http://www.w3.org/2004/02/skos/core#altLabel> "Difficulty sleeping" .
+<http://example.org/medical/shortness_of_breath> <http://www.w3.org/2004/02/skos/core#altLabel> "SOB" .
+<http://example.org/medical/xray> <http://www.w3.org/2004/02/skos/core#altLabel> "Radiography" .
+<http://example.org/medical/back_pain> <http://www.w3.org/2004/02/skos/core#altLabel> "Dorsalgia" .
+<http://example.org/medical/headache> <http://www.w3.org/2000/01/rdf-schema#label> "Headache" .
+<http://example.org/medical/hemoglobin> <http://www.w3.org/2004/02/skos/core#altLabel> "Haemoglobin" .
+<http://example.org/medical/nausea> <http://www.w3.org/2004/02/skos/core#altLabel> "Feeling sick" .
+<http://example.org/medical/copd> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/medical/types/Disease> .
+<http://example.org/medical/hyperthyroidism> <http://www.w3.org/2000/01/rdf-schema#label> "Hyperthyroidism" .
+<http://example.org/medical/height> <http://www.w3.org/2000/01/rdf-schema#label> "Height" .
+<http://example.org/medical/mri> <http://www.w3.org/2004/02/skos/core#altLabel> "Magnetic resonance" .
+<http://example.org/medical/pet_scan> <http://www.w3.org/2004/02/skos/core#prefLabel> "Positron Emission Tomography" .
+<http://example.org/medical/fatigue> <http://www.w3.org/2004/02/skos/core#altLabel> "Lethargy" .

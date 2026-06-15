@@ -1,0 +1,910 @@
+{% extends "base.html" %}
+{% block title %}KG Overview - Medical Entity Classifier{% endblock %}
+
+{% block extra_css %}
+<style>
+    .store-card {
+        transition: transform 0.15s ease;
+        border-left: 4px solid #dee2e6;
+    }
+    .store-card.active-store {
+        border-left-color: #198754;
+    }
+    .store-card.external-store {
+        border-left-color: #0d6efd;
+    }
+    .stat-number {
+        font-size: 1.4rem;
+        font-weight: 700;
+    }
+    .store-badge {
+        font-size: 0.7rem;
+        padding: 3px 8px;
+        border-radius: 12px;
+    }
+    .type-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+    }
+    .type-bar {
+        height: 6px;
+        border-radius: 3px;
+        margin-top: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-diagram-3 me-2"></i>KG Overview</h1>
+    <button class="btn btn-primary" id="reloadKgBtn">
+        <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+        <i class="bi bi-arrow-clockwise me-1"></i>Reload Graph
+    </button>
+</div>
+
+<!-- Enabled Triple Stores Status -->
+<div class="card mb-4" id="activeStoreCard">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-hdd-stack me-2"></i>Enabled Triple Stores</span>
+        <a href="/app/config/triple-store" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-gear me-1"></i>Manage Stores
+        </a>
+    </div>
+    <div class="card-body" id="activeStoreBody">
+        <div class="text-center py-3">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <small class="text-muted ms-2">Loading triple store status...</small>
+        </div>
+    </div>
+</div>
+
+<!-- Global Statistics (local KG) -->
+<div class="row g-4 mb-4" id="localStatsRow">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-warning" id="totalTriples">-</h3>
+                <small class="text-muted">Triples</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-primary" id="totalEntities">-</h3>
+                <small class="text-muted">Total Entities</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-info" id="totalTypes">-</h3>
+                <small class="text-muted">Entity Types</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- External Store Stats (dynamically populated) -->
+<div id="externalStoresSection" class="d-none mb-4"></div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <!-- Entities by Type (local) -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-pie-chart me-2"></i>Entities by Type <small class="text-muted">(Local KG)</small>
+            </div>
+            <div class="card-body" id="typeBreakdown">
+                <div class="text-center py-4">
+                    <div class="spinner-border" role="status"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TTL Files Management -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-file-earmark-code me-2"></i>TTL Files</span>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadTTLModal">
+                    <i class="bi bi-upload me-1"></i>Upload TTL
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="ttlFilesList">
+                    <div class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                    </div>
+                </div>
+                <hr>
+                <p class="mb-0 small text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    The Knowledge Graph loads <strong>all .ttl files</strong> from the KnowledgeGraph directory. 
+                    Upload new files or delete existing ones to modify the graph.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <!-- Entities by Type (External KG) -->
+        <div class="card mb-4" id="externalTypeCard">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-cloud me-2"></i>Entities by Type <small class="text-muted">(External KG)</small></span>
+                <button class="btn btn-sm btn-outline-primary" id="refreshExternalTypesBtn" title="Refresh">
+                    <i class="bi bi-arrow-repeat"></i>
+                </button>
+            </div>
+            <div class="card-body" id="externalTypeBreakdown">
+                <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm" role="status"></div>
+                    <small class="text-muted ms-2">Loading external KG stats…</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Entity -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-search me-2"></i>Search Entity
+            </div>
+            <div class="card-body">
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" id="searchInput" placeholder="Search for an entity...">
+                    <button class="btn btn-outline-secondary" type="button" id="searchBtn">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+                <div id="searchResults"></div>
+            </div>
+        </div>
+
+        <!-- Sample Entities -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list me-2"></i>Sample Entities</span>
+                <small class="text-muted" id="lastQueryDate"></small>
+            </div>
+            <div class="card-body" id="sampleEntities" style="max-height: 300px; overflow-y: auto;">
+                <div class="text-center py-4">
+                    <div class="spinner-border" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload TTL Modal -->
+<div class="modal fade" id="uploadTTLModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Upload TTL File</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadTTLForm">
+                    <div class="mb-3">
+                        <label for="ttlFile" class="form-label">Select TTL File</label>
+                        <input type="file" class="form-control" id="ttlFile" accept=".ttl" required>
+                        <div class="form-text">Only .ttl (Turtle RDF) files are allowed.</div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="reloadAfterUpload" checked>
+                        <label class="form-check-label" for="reloadAfterUpload">
+                            Reload Knowledge Graph after upload
+                        </label>
+                    </div>
+                    <div id="uploadPreview" class="d-none">
+                        <div class="alert alert-info">
+                            <strong>File:</strong> <span id="previewFileName"></span><br>
+                            <strong>Size:</strong> <span id="previewFileSize"></span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmUploadBtn">
+                    <span class="loading-spinner spinner-border spinner-border-sm me-1" role="status"></span>
+                    <i class="bi bi-upload me-1"></i>Upload
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteTTLModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-trash me-2"></i>Delete TTL File</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deleteFileName"></strong>?</p>
+                <p class="text-danger small">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    This action cannot be undone. All entities from this file will be removed from the Knowledge Graph.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <span class="loading-spinner spinner-border spinner-border-sm me-1" role="status"></span>
+                    <i class="bi bi-trash me-1"></i>Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+    const reloadBtn = document.getElementById('reloadKgBtn');
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchResults = document.getElementById('searchResults');
+    const ttlFileInput = document.getElementById('ttlFile');
+    const confirmUploadBtn = document.getElementById('confirmUploadBtn');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    
+    let fileToDelete = null;
+    
+    const CACHE_KEY_LOCAL = 'kg_overview_local_stats';
+    const CACHE_KEY_STORES = 'kg_overview_store_stats';
+
+    // Try to show cached data immediately
+    restoreFromCache();
+
+    // Initialize all sections
+    await Promise.all([
+        loadActiveStoreStatus(),
+        loadStats(),
+        loadTTLFiles(),
+        loadExternalStores(),
+        loadExternalTypeBreakdown(),
+    ]);
+
+    // Refresh external types button
+    document.getElementById('refreshExternalTypesBtn').addEventListener('click', () => loadExternalTypeBreakdown(true));
+
+    // Reload KG button
+    reloadBtn.addEventListener('click', async function() {
+        reloadBtn.classList.add('loading');
+        reloadBtn.disabled = true;
+        
+        try {
+            await apiCall('/classify/kg/reload', 'POST');
+            showToast('Knowledge Graph reloaded successfully!', 'success');
+            await loadStats();
+            await loadTTLFiles();
+        } catch (error) {
+            showToast('Error reloading: ' + error.message, 'error');
+        } finally {
+            reloadBtn.classList.remove('loading');
+            reloadBtn.disabled = false;
+        }
+    });
+
+    // Search functionality
+    searchBtn.addEventListener('click', performSearch);
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') performSearch();
+    });
+    
+    // File input preview
+    ttlFileInput.addEventListener('change', function() {
+        const file = this.files[0];
+        const preview = document.getElementById('uploadPreview');
+        if (file) {
+            document.getElementById('previewFileName').textContent = file.name;
+            document.getElementById('previewFileSize').textContent = formatFileSize(file.size);
+            preview.classList.remove('d-none');
+        } else {
+            preview.classList.add('d-none');
+        }
+    });
+    
+    // Upload TTL file
+    confirmUploadBtn.addEventListener('click', async function() {
+        const file = ttlFileInput.files[0];
+        if (!file) {
+            showToast('Please select a file', 'error');
+            return;
+        }
+        
+        confirmUploadBtn.classList.add('loading');
+        confirmUploadBtn.disabled = true;
+        
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const reload = document.getElementById('reloadAfterUpload').checked;
+            
+            const response = await fetch(`/classify/kg/upload?reload=${reload}`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.detail || 'Upload failed');
+            }
+            
+            showToast(`File '${file.name}' uploaded successfully! (${result.triples_in_file} triples)`, 'success');
+            
+            // Close modal and refresh
+            bootstrap.Modal.getInstance(document.getElementById('uploadTTLModal')).hide();
+            ttlFileInput.value = '';
+            document.getElementById('uploadPreview').classList.add('d-none');
+            
+            await loadStats();
+            await loadTTLFiles();
+            
+        } catch (error) {
+            showToast('Error uploading file: ' + error.message, 'error');
+        } finally {
+            confirmUploadBtn.classList.remove('loading');
+            confirmUploadBtn.disabled = false;
+        }
+    });
+    
+    // Delete TTL file
+    confirmDeleteBtn.addEventListener('click', async function() {
+        if (!fileToDelete) return;
+        
+        confirmDeleteBtn.classList.add('loading');
+        confirmDeleteBtn.disabled = true;
+        
+        try {
+            await apiCall(`/classify/kg/file/${encodeURIComponent(fileToDelete)}`, 'DELETE');
+            showToast(`File '${fileToDelete}' deleted successfully!`, 'success');
+            
+            // Close modal and refresh
+            bootstrap.Modal.getInstance(document.getElementById('deleteTTLModal')).hide();
+            fileToDelete = null;
+            
+            await loadStats();
+            await loadTTLFiles();
+            
+        } catch (error) {
+            showToast('Error deleting file: ' + error.message, 'error');
+        } finally {
+            confirmDeleteBtn.classList.remove('loading');
+            confirmDeleteBtn.disabled = false;
+        }
+    });
+
+    async function loadActiveStoreStatus() {
+        const body = document.getElementById('activeStoreBody');
+        try {
+            const status = await apiCall('/triple-store/status/active');
+            if (!status || status.backend_type === 'none') {
+                body.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-info-circle text-muted me-2" style="font-size:1.3rem"></i>
+                        <div>
+                            <strong>No triple store enabled</strong>
+                            <p class="mb-0 small text-muted">Using default local rdflib graph. Configure a triple store for external SPARQL endpoints.</p>
+                        </div>
+                    </div>`;
+                return;
+            }
+
+            if (!status.configs || status.configs.length === 0) {
+                body.innerHTML = `<span class="text-muted">No enabled stores.</span>`;
+                return;
+            }
+
+            let html = `<p class="mb-2 text-muted small">${status.message}</p>`;
+            html += '<div class="list-group list-group-flush">';
+
+            status.configs.forEach(s => {
+                const connIcon = s.is_connected
+                    ? '<i class="bi bi-check-circle-fill text-success me-2"></i>'
+                    : '<i class="bi bi-x-circle-fill text-danger me-2"></i>';
+                const isExternal = s.config.store_type === 'sparql_endpoint';
+                const typeBadge = isExternal
+                    ? '<span class="badge bg-primary store-badge ms-1">External</span>'
+                    : '<span class="badge bg-success store-badge ms-1">Internal</span>';
+                const cacheInfo = s.cache_status
+                    ? `<span class="badge bg-secondary store-badge ms-1">Cache: ${s.cache_status}</span>`
+                    : '';
+
+                html += `
+                    <div class="list-group-item d-flex align-items-center justify-content-between px-0">
+                        <div class="d-flex align-items-center">
+                            ${connIcon}
+                            <div>
+                                <strong>${s.config.name}</strong> ${typeBadge} ${cacheInfo}
+                                <br><small class="text-muted">${s.message}</small>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="fw-bold text-primary">${formatNumber(s.triple_count)}</span>
+                            <br><small class="text-muted">triples</small>
+                        </div>
+                    </div>`;
+            });
+            html += '</div>';
+            body.innerHTML = html;
+        } catch (error) {
+            body.innerHTML = `<small class="text-danger">Error loading status: ${error.message}</small>`;
+        }
+    }
+
+    async function loadExternalStores() {
+        const section = document.getElementById('externalStoresSection');
+        try {
+            const configs = await apiCall('/triple-store/');
+            // Filter for external/sparql_endpoint stores
+            const externalStores = configs.filter(c => c.store_type === 'sparql_endpoint');
+            if (externalStores.length === 0) return;
+
+            section.classList.remove('d-none');
+            let html = '<h5 class="mb-3"><i class="bi bi-cloud me-2"></i>External Triple Stores</h5><div class="row g-3">';
+
+            for (const store of externalStores) {
+                const enabledBadge = store.is_active ? '<span class="badge bg-success store-badge ms-1">Enabled</span>' : '';
+                html += `
+                    <div class="col-12">
+                        <div class="card store-card ${store.is_active ? 'active-store' : 'external-store'}">
+                            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                                <span>
+                                    <i class="bi bi-cloud-fill text-primary me-1"></i>
+                                    <strong>${store.name}</strong> ${enabledBadge}
+                                    <small class="text-muted ms-2">${store.sparql_query_endpoint || ''}</small>
+                                </span>
+                                <button class="btn btn-sm btn-outline-primary" onclick="loadStoreStats(${store.id}, this)">
+                                    <i class="bi bi-arrow-repeat me-1"></i>Load Stats
+                                </button>
+                            </div>
+                            <div class="card-body py-2" id="storeStats_${store.id}">
+                                <small class="text-muted">Click "Load Stats" to fetch entity statistics from this store.</small>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+            html += '</div>';
+            section.innerHTML = html;
+
+            // Show cached data for each store, and auto-load enabled stores
+            for (const store of externalStores) {
+                const cacheKey = CACHE_KEY_STORES + '_' + store.id;
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    try {
+                        const obj = JSON.parse(cached);
+                        const cont = document.getElementById(`storeStats_${store.id}`);
+                        renderStoreStatsFromCache(cont, obj);
+                    } catch (_) {}
+                }
+            }
+
+            // Auto-refresh stats for enabled stores
+            const enabledStores = externalStores.filter(s => s.is_active);
+            for (const store of enabledStores) {
+                const btn = section.querySelector(`#storeStats_${store.id}`).closest('.card').querySelector('button');
+                loadStoreStats(store.id, btn);
+            }
+
+        } catch (error) {
+            console.error('Error loading external stores:', error);
+        }
+    }
+
+    window.loadStoreStats = async function(storeId, btn) {
+        const container = document.getElementById(`storeStats_${storeId}`);
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Loading...';
+
+        // Show cached data while loading
+        const cacheKey = CACHE_KEY_STORES + '_' + storeId;
+        const cachedStore = localStorage.getItem(cacheKey);
+        if (!cachedStore) {
+            container.innerHTML = '<div class="text-center py-2"><div class="spinner-border spinner-border-sm"></div></div>';
+        }
+
+        try {
+            const stats = await apiCall(`/triple-store/${storeId}/entity-stats`);
+            if (!stats.success) {
+                container.innerHTML = `<div class="alert alert-danger py-1 mb-0"><small>${stats.error}</small></div>`;
+                return;
+            }
+
+            // Save to cache
+            localStorage.setItem(cacheKey, JSON.stringify({ stats, timestamp: new Date().toISOString() }));
+
+            // Summary row
+            let html = `
+                <div class="row text-center mb-3 g-2">
+                    <div class="col">
+                        <div class="stat-number text-primary">${formatNumber(stats.total_triples)}</div>
+                        <small class="text-muted">Triples</small>
+                    </div>
+                    <div class="col">
+                        <div class="stat-number text-success">${formatNumber(stats.total_entities)}</div>
+                        <small class="text-muted">Entities</small>
+                    </div>
+                    <div class="col">
+                        <div class="stat-number text-info">${formatNumber(stats.total_labels)}</div>
+                        <small class="text-muted">Labels</small>
+                    </div>
+                    <div class="col">
+                        <div class="stat-number text-warning">${Object.keys(stats.entities_by_type || {}).length}</div>
+                        <small class="text-muted">Types</small>
+                    </div>
+                    <div class="col">
+                        <div class="stat-number text-secondary">${formatNumber(stats.total_predicates)}</div>
+                        <small class="text-muted">Predicates</small>
+                    </div>
+                </div>`;
+
+            // Type breakdown
+            const byType = stats.entities_by_type || {};
+            const sortedTypes = Object.entries(byType).sort((a, b) => b[1] - a[1]);
+            if (sortedTypes.length > 0) {
+                const maxCount = sortedTypes[0][1];
+                html += '<div class="row"><div class="col-md-6"><h6 class="text-muted mb-2">Entities by Type</h6>';
+                sortedTypes.slice(0, 20).forEach(([type, count]) => {
+                    const pct = ((count / maxCount) * 100).toFixed(1);
+                    html += `
+                        <div class="type-row">
+                            <span><small class="badge bg-secondary">${type}</small></span>
+                            <small class="text-muted">${formatNumber(count)}</small>
+                        </div>
+                        <div class="progress type-bar"><div class="progress-bar bg-primary" style="width:${pct}%"></div></div>`;
+                });
+                if (sortedTypes.length > 20) {
+                    html += `<small class="text-muted">... and ${sortedTypes.length - 20} more types</small>`;
+                }
+                html += '</div>';
+
+                // Sample entities
+                if (stats.sample_entities && stats.sample_entities.length > 0) {
+                    html += '<div class="col-md-6"><h6 class="text-muted mb-2">Sample Entities</h6><div class="d-flex flex-wrap gap-1">';
+                    stats.sample_entities.forEach(e => {
+                        html += `<span class="badge bg-light text-dark border" title="${e.type}">${e.label}</span>`;
+                    });
+                    html += '</div></div>';
+                }
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
+
+        } catch (error) {
+            // Show cached data on error
+            if (cachedStore) {
+                try {
+                    const obj = JSON.parse(cachedStore);
+                    renderStoreStatsFromCache(container, obj);
+                } catch (_) {
+                    container.innerHTML = `<div class="alert alert-danger py-1 mb-0"><small>Error: ${error.message}</small></div>`;
+                }
+            } else {
+                container.innerHTML = `<div class="alert alert-danger py-1 mb-0"><small>Error: ${error.message}</small></div>`;
+            }
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Refresh';
+        }
+    };
+
+    function renderStoreStatsFromCache(container, obj) {
+        // Re-render cached store stats (simplified fallback)
+        const stats = obj.stats;
+        container.innerHTML = `
+            <div class="row text-center mb-2 g-2">
+                <div class="col"><div class="stat-number text-primary">${formatNumber(stats.total_triples)}</div><small class="text-muted">Triples</small></div>
+                <div class="col"><div class="stat-number text-success">${formatNumber(stats.total_entities)}</div><small class="text-muted">Entities</small></div>
+                <div class="col"><div class="stat-number text-info">${formatNumber(stats.total_labels)}</div><small class="text-muted">Labels</small></div>
+                <div class="col"><div class="stat-number text-warning">${Object.keys(stats.entities_by_type || {}).length}</div><small class="text-muted">Types</small></div>
+            </div>
+            <small class="text-muted"><i class="bi bi-clock-history me-1"></i>Cached: ${new Date(obj.timestamp).toLocaleString()}</small>`;
+    }
+
+    function restoreFromCache() {
+        // Restore local KG stats from localStorage
+        try {
+            const cached = localStorage.getItem(CACHE_KEY_LOCAL);
+            if (cached) {
+                const obj = JSON.parse(cached);
+                renderLocalStats(obj.stats);
+                showLastQueryDate(obj.timestamp);
+            }
+        } catch (_) {}
+
+        // Restore external type breakdown
+        try {
+            const cached = localStorage.getItem('kg_overview_external_types');
+            if (cached) {
+                const obj = JSON.parse(cached);
+                renderExternalTypeBreakdown(obj.merged, obj.storeNames);
+            }
+        } catch (_) {}
+    }
+
+    async function loadExternalTypeBreakdown(forceRefresh = false) {
+        const container = document.getElementById('externalTypeBreakdown');
+        const cacheKey = 'kg_overview_external_types';
+
+        // Show cached while loading
+        if (!forceRefresh) {
+            try {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    const obj = JSON.parse(cached);
+                    renderExternalTypeBreakdown(obj.merged, obj.storeNames);
+                }
+            } catch (_) {}
+        }
+
+        try {
+            // Get all external store configs
+            const configs = await apiCall('/triple-store/');
+            const externalStores = configs.filter(c => c.store_type === 'sparql_endpoint');
+
+            if (externalStores.length === 0) {
+                container.innerHTML = '<p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i>No external triple stores configured.</p>';
+                return;
+            }
+
+            // Fetch stats from each external store in parallel
+            const statsPromises = externalStores.map(async (store) => {
+                try {
+                    const stats = await apiCall(`/triple-store/${store.id}/entity-stats`);
+                    return { name: store.name, stats };
+                } catch (e) {
+                    return { name: store.name, stats: null, error: e.message };
+                }
+            });
+
+            const results = await Promise.all(statsPromises);
+
+            // Merge entities_by_type across all stores
+            const merged = {};
+            const storeNames = [];
+            for (const r of results) {
+                if (!r.stats || !r.stats.success) continue;
+                storeNames.push(r.name);
+                const byType = r.stats.entities_by_type || {};
+                for (const [type, count] of Object.entries(byType)) {
+                    merged[type] = (merged[type] || 0) + count;
+                }
+            }
+
+            // Cache
+            localStorage.setItem(cacheKey, JSON.stringify({ merged, storeNames, timestamp: new Date().toISOString() }));
+
+            renderExternalTypeBreakdown(merged, storeNames);
+
+        } catch (error) {
+            if (!localStorage.getItem(cacheKey)) {
+                container.innerHTML = `<p class="text-danger small mb-0">Error: ${error.message}</p>`;
+            }
+        }
+    }
+
+    function renderExternalTypeBreakdown(merged, storeNames) {
+        const container = document.getElementById('externalTypeBreakdown');
+        const sortedTypes = Object.entries(merged).sort((a, b) => b[1] - a[1]);
+
+        if (sortedTypes.length === 0) {
+            container.innerHTML = '<p class="text-muted small mb-0">No entity types found in external stores.</p>';
+            return;
+        }
+
+        const totalEntities = sortedTypes.reduce((sum, [, c]) => sum + c, 0);
+        const maxCount = sortedTypes[0][1];
+
+        let html = `<div class="mb-2"><small class="text-muted"><i class="bi bi-cloud me-1"></i>${storeNames.join(', ')} — <strong>${formatNumber(totalEntities)}</strong> entities, <strong>${sortedTypes.length}</strong> types</small></div>`;
+
+        sortedTypes.forEach(([type, count]) => {
+            const pct = ((count / maxCount) * 100).toFixed(1);
+            html += `
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between">
+                        <span><small class="badge bg-primary">${type}</small></span>
+                        <small>${formatNumber(count)} entities</small>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-primary" style="width: ${pct}%"></div>
+                    </div>
+                </div>`;
+        });
+
+        container.innerHTML = html;
+    }
+
+    function showLastQueryDate(ts) {
+        if (!ts) return;
+        const d = new Date(ts);
+        document.getElementById('lastQueryDate').innerHTML =
+            `<i class="bi bi-clock-history me-1"></i>${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+    }
+
+    function renderLocalStats(stats) {
+        document.getElementById('totalTriples').textContent = formatNumber(stats.total_triples || 0);
+        document.getElementById('totalEntities').textContent = formatNumber(stats.total_entities || 0);
+        document.getElementById('totalTypes').textContent = Object.keys(stats.entities_by_type || {}).length;
+
+        // Type breakdown
+        const byType = stats.entities_by_type || {};
+        let typeHtml = '';
+        for (const [type, count] of Object.entries(byType)) {
+            const percent = ((count / (stats.total_entities || 1)) * 100).toFixed(1);
+            typeHtml += `
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between">
+                        <span class="badge badge-entity entity-${type}">${type}</span>
+                        <small>${count} entities</small>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar entity-${type}" style="width: ${percent}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+        document.getElementById('typeBreakdown').innerHTML = typeHtml || '<p class="text-muted">No data</p>';
+
+        // Sample entities
+        if (stats.sample_entities && stats.sample_entities.length > 0) {
+            let sampleHtml = '<div class="d-flex flex-wrap gap-2">';
+            stats.sample_entities.forEach(entity => {
+                sampleHtml += `<span class="badge badge-entity entity-${entity.type}" title="${entity.type}">${entity.label}</span>`;
+            });
+            sampleHtml += '</div>';
+            document.getElementById('sampleEntities').innerHTML = sampleHtml;
+        } else {
+            document.getElementById('sampleEntities').innerHTML = '<p class="text-muted">No sample entities</p>';
+        }
+    }
+
+    async function loadStats() {
+        try {
+            const stats = await apiCall('/classify/kg/stats');
+            renderLocalStats(stats);
+
+            // Save to cache
+            const now = new Date().toISOString();
+            localStorage.setItem(CACHE_KEY_LOCAL, JSON.stringify({ stats, timestamp: now }));
+            showLastQueryDate(now);
+
+        } catch (error) {
+            // If live fetch fails and we had no cache, show error
+            if (!localStorage.getItem(CACHE_KEY_LOCAL)) {
+                document.getElementById('totalTriples').textContent = '-';
+                document.getElementById('totalEntities').textContent = '-';
+                document.getElementById('totalTypes').textContent = '-';
+            }
+            showToast('Error loading KG stats: ' + error.message, 'error');
+        }
+    }
+    
+    async function loadTTLFiles() {
+        const container = document.getElementById('ttlFilesList');
+        
+        try {
+            const response = await apiCall('/classify/kg/files');
+            const files = response.files || [];
+            
+            if (files.length === 0) {
+                container.innerHTML = '<p class="text-muted small mb-0">No TTL files found in the directory.</p>';
+                return;
+            }
+            
+            let html = '<div class="list-group list-group-flush">';
+            files.forEach(file => {
+                const loadedBadge = file.loaded 
+                    ? '<span class="badge bg-success ms-2">Loaded</span>' 
+                    : '<span class="badge bg-secondary ms-2">Not loaded</span>';
+                const modifiedDate = new Date(file.modified * 1000).toLocaleDateString();
+                
+                html += `
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <i class="bi bi-file-earmark-code text-primary me-2"></i>
+                            <strong>${file.name}</strong>
+                            ${loadedBadge}
+                            <br>
+                            <small class="text-muted">${formatFileSize(file.size)} • Modified: ${modifiedDate}</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger" onclick="showDeleteModal('${file.name}')" title="Delete file">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+            
+        } catch (error) {
+            container.innerHTML = `<p class="text-danger small mb-0">Error loading files: ${error.message}</p>`;
+        }
+    }
+    
+    // Make showDeleteModal available globally
+    window.showDeleteModal = function(filename) {
+        fileToDelete = filename;
+        document.getElementById('deleteFileName').textContent = filename;
+        new bootstrap.Modal(document.getElementById('deleteTTLModal')).show();
+    };
+
+    async function performSearch() {
+        const query = searchInput.value.trim();
+        if (!query) {
+            searchResults.innerHTML = '';
+            return;
+        }
+
+        searchResults.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm"></div></div>';
+
+        try {
+            const response = await apiCall(`/classify/kg/search?q=${encodeURIComponent(query)}&limit=10`);
+            
+            if (response.results && response.results.length > 0) {
+                let html = '<div class="list-group list-group-flush">';
+                response.results.forEach(entity => {
+                    const similarityBadge = entity.similarity >= 0.9 
+                        ? '<span class="badge bg-success ms-2">Exact</span>' 
+                        : `<span class="badge bg-secondary ms-2">${Math.round(entity.similarity * 100)}%</span>`;
+                    html += `
+                        <div class="list-group-item px-0">
+                            <span class="badge badge-entity entity-${entity.type} me-2">${entity.label}</span>
+                            <small class="text-muted">${entity.type}</small>
+                            ${similarityBadge}
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                searchResults.innerHTML = html;
+            } else {
+                searchResults.innerHTML = '<p class="text-muted small">No matching entities found</p>';
+            }
+        } catch (error) {
+            searchResults.innerHTML = `<p class="text-danger small">Search error: ${error.message}</p>`;
+        }
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function formatNumber(n) {
+        if (n === null || n === undefined) return '-';
+        return n.toLocaleString();
+    }
+});
+</script>
+<style>
+.progress-bar.entity-disease { background-color: #c62828; }
+.progress-bar.entity-symptom { background-color: #ad1457; }
+.progress-bar.entity-finding { background-color: #1565c0; }
+.progress-bar.entity-organ { background-color: #4e342e; }
+.progress-bar.entity-imaging_procedure { background-color: #7b1fa2; }
+.progress-bar.entity-examination_procedure { background-color: #512da8; }
+.progress-bar.entity-therapeutic_procedure { background-color: #283593; }
+.progress-bar.entity-imaging_result { background-color: #00695c; }
+.progress-bar.entity-examination_measure { background-color: #2e7d32; }
+.progress-bar.entity-parameter { background-color: #558b2f; }
+.progress-bar.entity-score { background-color: #f57f17; }
+.progress-bar.entity-therapy { background-color: #ff8f00; }
+.progress-bar.entity-substance { background-color: #ef6c00; }
+.progress-bar.entity-adverse_event { background-color: #bf360c; }
+</style>
+{% endblock %}

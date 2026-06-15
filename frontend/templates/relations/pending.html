@@ -1,0 +1,991 @@
+{% extends "base.html" %}
+{% block title %}Pending Relations - Medical Entity Classifier{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-arrow-left-right me-2"></i>Pending Relations</h1>
+    <div class="btn-toolbar">
+        <button class="btn btn-outline-secondary me-2" id="refreshBtn">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+        <div class="btn-group">
+            <button class="btn btn-outline-danger" id="bulkDeleteBtn" disabled>
+                <i class="bi bi-trash"></i> Delete Selected
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4" id="statsRow">
+    <div class="col-md-3">
+        <div class="card text-bg-warning">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-1 text-dark">Pending</h6>
+                        <h3 class="card-title mb-0" id="statPending">-</h3>
+                    </div>
+                    <i class="bi bi-hourglass-split" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-success">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-1 text-white">Approved</h6>
+                        <h3 class="card-title mb-0" id="statApproved">-</h3>
+                    </div>
+                    <i class="bi bi-check-circle" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-danger">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-1 text-white">Rejected</h6>
+                        <h3 class="card-title mb-0" id="statRejected">-</h3>
+                    </div>
+                    <i class="bi bi-x-circle" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-info">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-1 text-white">Sources</h6>
+                        <div id="statSources" class="small">-</div>
+                    </div>
+                    <i class="bi bi-diagram-2" style="font-size: 2rem; opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small">Search</label>
+                <input type="text" class="form-control" id="searchInput" placeholder="Search entities...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Status</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">All Status</option>
+                    <option value="pending" selected>Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Relation Type</label>
+                <select class="form-select" id="relationTypeFilter">
+                    <option value="">All Types</option>
+                    <option value="has_symptom">has_symptom</option>
+                    <option value="has_finding">has_finding</option>
+                    <option value="suggests">suggests</option>
+                    <option value="located_in">located_in</option>
+                    <option value="indicated_for">indicated_for</option>
+                    <option value="produces_result">produces_result</option>
+                    <option value="treats">treats</option>
+                    <option value="first_line_for">first_line_for</option>
+                    <option value="contraindicated_in">contraindicated_in</option>
+                    <option value="rules_out">rules_out</option>
+                    <option value="assesses">assesses</option>
+                    <option value="affects">affects</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Source</label>
+                <select class="form-select" id="sourceFilter">
+                    <option value="">All Sources</option>
+                    <option value="llm">LLM</option>
+                    <option value="bert">BERT</option>
+                </select>
+            </div>
+            <div class="col-md-2 text-end">
+                <button class="btn btn-outline-secondary" id="clearFiltersBtn" title="Clear Filters">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Relations Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-table me-2"></i>Relations List</span>
+        <span class="badge bg-secondary" id="totalCount">0 relations</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="40">
+                            <input type="checkbox" class="form-check-input" id="selectAll">
+                        </th>
+                        <th class="sortable" data-sort="source_entity">Source Entity</th>
+                        <th class="sortable" data-sort="relation_type">Relation</th>
+                        <th class="sortable" data-sort="target_entity">Target Entity</th>
+                        <th class="sortable" data-sort="confidence">Confidence</th>
+                        <th class="sortable" data-sort="review_status">Review</th>
+                        <th class="sortable" data-sort="source">Source</th>
+                        <th class="sortable" data-sort="created_at">Date</th>
+                        <th width="220">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="relationsTable">
+                    <tr>
+                        <td colspan="9" class="text-center py-5 text-muted">
+                            <div class="spinner-border spinner-border-sm me-2"></div>
+                            Loading relations...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer">
+        <nav aria-label="Page navigation">
+            <ul class="pagination mb-0 justify-content-center" id="pagination"></ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Edit Relation Modal -->
+<div class="modal fade" id="editRelationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Edit Relation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editRelationId">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Source Entity</label>
+                        <input type="text" class="form-control" id="editSourceEntity">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Source Type</label>
+                        <input type="text" class="form-control" id="editSourceType">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Relation Type</label>
+                    <select class="form-select" id="editRelationType">
+                        <option value="has_symptom">has_symptom</option>
+                        <option value="has_finding">has_finding</option>
+                        <option value="suggests">suggests</option>
+                        <option value="located_in">located_in</option>
+                        <option value="indicated_for">indicated_for</option>
+                        <option value="produces_result">produces_result</option>
+                        <option value="treats">treats</option>
+                        <option value="first_line_for">first_line_for</option>
+                        <option value="contraindicated_in">contraindicated_in</option>
+                        <option value="rules_out">rules_out</option>
+                        <option value="assesses">assesses</option>
+                        <option value="affects">affects</option>
+                    </select>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Target Entity</label>
+                        <input type="text" class="form-control" id="editTargetEntity">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Target Type</label>
+                        <input type="text" class="form-control" id="editTargetType">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="editStatus">
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEditBtn">
+                    <i class="bi bi-check-lg me-1"></i>Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Details Modal -->
+<div class="modal fade" id="viewDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-info-circle me-2"></i>Relation Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="viewDetailsContent">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approve & Add to KG Modal -->
+<div class="modal fade" id="approveKGModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title"><i class="bi bi-diagram-3 me-2 text-success"></i>Add Relation to Knowledge Graph</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="approveRelationId">
+
+                <p class="text-muted mb-3">Review and optionally modify the entities and relation before adding to the Knowledge Graph.</p>
+
+                <!-- Source Entity -->
+                <div class="card mb-3">
+                    <div class="card-header py-2"><i class="bi bi-box-arrow-right me-1 text-primary"></i><strong>Source Entity</strong></div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <label class="form-label small text-muted">Entity Text</label>
+                                <input type="text" class="form-control" id="approveSourceEntity">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small text-muted">Entity Type</label>
+                                <select class="form-select" id="approveSourceType">
+                                    <option value="disease">Disease</option>
+                                    <option value="symptom">Symptom</option>
+                                    <option value="finding">Finding</option>
+                                    <option value="organ">Organ</option>
+                                    <option value="imaging_procedure">Imaging Procedure</option>
+                                    <option value="examination_procedure">Examination Procedure</option>
+                                    <option value="therapeutic_procedure">Therapeutic Procedure</option>
+                                    <option value="imaging_result">Imaging Result</option>
+                                    <option value="examination_measure">Examination Measure</option>
+                                    <option value="parameter">Parameter</option>
+                                    <option value="score">Score</option>
+                                    <option value="therapy">Therapy</option>
+                                    <option value="substance">Substance</option>
+                                    <option value="adverse_event">Adverse Event</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Relation Type -->
+                <div class="card mb-3">
+                    <div class="card-header py-2"><i class="bi bi-arrow-left-right me-1 text-warning"></i><strong>Relation</strong></div>
+                    <div class="card-body">
+                        <label class="form-label small text-muted">Relation Type</label>
+                        <select class="form-select" id="approveRelationType">
+                            <option value="has_symptom">has_symptom</option>
+                            <option value="has_finding">has_finding</option>
+                            <option value="suggests">suggests</option>
+                            <option value="located_in">located_in</option>
+                            <option value="indicated_for">indicated_for</option>
+                            <option value="produces_result">produces_result</option>
+                            <option value="treats">treats</option>
+                            <option value="first_line_for">first_line_for</option>
+                            <option value="contraindicated_in">contraindicated_in</option>
+                            <option value="rules_out">rules_out</option>
+                            <option value="assesses">assesses</option>
+                            <option value="affects">affects</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Target Entity -->
+                <div class="card mb-3">
+                    <div class="card-header py-2"><i class="bi bi-box-arrow-in-right me-1 text-info"></i><strong>Target Entity</strong></div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <label class="form-label small text-muted">Entity Text</label>
+                                <input type="text" class="form-control" id="approveTargetEntity">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small text-muted">Entity Type</label>
+                                <select class="form-select" id="approveTargetType">
+                                    <option value="disease">Disease</option>
+                                    <option value="symptom">Symptom</option>
+                                    <option value="finding">Finding</option>
+                                    <option value="organ">Organ</option>
+                                    <option value="imaging_procedure">Imaging Procedure</option>
+                                    <option value="examination_procedure">Examination Procedure</option>
+                                    <option value="therapeutic_procedure">Therapeutic Procedure</option>
+                                    <option value="imaging_result">Imaging Result</option>
+                                    <option value="examination_measure">Examination Measure</option>
+                                    <option value="parameter">Parameter</option>
+                                    <option value="score">Score</option>
+                                    <option value="therapy">Therapy</option>
+                                    <option value="substance">Substance</option>
+                                    <option value="adverse_event">Adverse Event</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview -->
+                <div class="alert alert-secondary mb-0">
+                    <small class="text-muted d-block mb-1">Triple Preview</small>
+                    <div class="d-flex align-items-center gap-2 flex-wrap" id="approvePreview">
+                        <strong id="previewSource">-</strong>
+                        <i class="bi bi-arrow-right text-primary"></i>
+                        <span class="badge bg-primary" id="previewRelation">-</span>
+                        <i class="bi bi-arrow-right text-primary"></i>
+                        <strong id="previewTarget">-</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirmApproveKGBtn">
+                    <i class="bi bi-plus-lg me-1"></i>Add to Knowledge Graph
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table th {
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        color: #6c757d;
+    }
+    .relation-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+    }
+    .source-badge {
+        font-size: 0.7rem;
+        padding: 3px 6px;
+    }
+    .action-btn {
+        padding: 4px 8px;
+        font-size: 0.8rem;
+    }
+    .pagination {
+        margin: 0;
+    }
+    .table > tbody > tr:hover {
+        background-color: #f8f9fa;
+    }
+    .selected-row {
+        background-color: #e3f2fd !important;
+    }
+    .relation-arrow {
+        color: #6c757d;
+        font-weight: bold;
+    }
+    th.sortable {
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+        padding-right: 18px !important;
+    }
+    th.sortable:hover {
+        background-color: #e9ecef;
+    }
+    th.sortable::after {
+        content: '\2195';
+        position: absolute;
+        right: 4px;
+        opacity: 0.3;
+        font-size: 0.75rem;
+    }
+    th.sortable.sort-asc::after {
+        content: '\2191';
+        opacity: 0.8;
+    }
+    th.sortable.sort-desc::after {
+        content: '\2193';
+        opacity: 0.8;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // State
+    let currentPage = 1;
+    const pageSize = 20;
+    let totalPages = 1;
+    let selectedIds = new Set();
+    let allRelations = [];
+    let sortColumn = null;
+    let sortDirection = 'asc';
+    
+    // Elements
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const relationTypeFilter = document.getElementById('relationTypeFilter');
+    const sourceFilter = document.getElementById('sourceFilter');
+    const relationsTable = document.getElementById('relationsTable');
+    const pagination = document.getElementById('pagination');
+    const totalCount = document.getElementById('totalCount');
+    const selectAll = document.getElementById('selectAll');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    
+    // Modals
+    const editModal = new bootstrap.Modal(document.getElementById('editRelationModal'));
+    const viewDetailsModal = new bootstrap.Modal(document.getElementById('viewDetailsModal'));
+    const approveKGModal = new bootstrap.Modal(document.getElementById('approveKGModal'));
+
+    // Sortable columns
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const col = th.dataset.sort;
+            if (sortColumn === col) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = col;
+                sortDirection = 'asc';
+            }
+            document.querySelectorAll('th.sortable').forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+            th.classList.add(sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+            loadRelations();
+        });
+    });
+
+    function sortArray(arr) {
+        if (!sortColumn) return arr;
+        return [...arr].sort((a, b) => {
+            let va = a[sortColumn], vb = b[sortColumn];
+            if (va == null) va = '';
+            if (vb == null) vb = '';
+            if (typeof va === 'number' && typeof vb === 'number') {
+                return sortDirection === 'asc' ? va - vb : vb - va;
+            }
+            va = String(va).toLowerCase();
+            vb = String(vb).toLowerCase();
+            if (va < vb) return sortDirection === 'asc' ? -1 : 1;
+            if (va > vb) return sortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    // Live preview for approve modal
+    function updateApprovePreview() {
+        document.getElementById('previewSource').textContent =
+            document.getElementById('approveSourceEntity').value || '-';
+        document.getElementById('previewRelation').textContent =
+            document.getElementById('approveRelationType').value || '-';
+        document.getElementById('previewTarget').textContent =
+            document.getElementById('approveTargetEntity').value || '-';
+    }
+    ['approveSourceEntity', 'approveRelationType', 'approveTargetEntity'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updateApprovePreview);
+        document.getElementById(id).addEventListener('change', updateApprovePreview);
+    });
+
+    // Confirm approve & add to KG
+    document.getElementById('confirmApproveKGBtn').addEventListener('click', async () => {
+        const id = document.getElementById('approveRelationId').value;
+        const btn = document.getElementById('confirmApproveKGBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Adding...';
+
+        try {
+            const params = new URLSearchParams({
+                source_entity: document.getElementById('approveSourceEntity').value,
+                source_type: document.getElementById('approveSourceType').value,
+                relation_type: document.getElementById('approveRelationType').value,
+                target_entity: document.getElementById('approveTargetEntity').value,
+                target_type: document.getElementById('approveTargetType').value,
+            });
+
+            const response = await apiCall(`/pending-relations/${id}/add-to-kg?${params}`, 'POST');
+            if (response && response.success) {
+                showToast(response.message || 'Relation added to KG', 'success');
+                approveKGModal.hide();
+                loadStats();
+                loadRelations();
+            } else {
+                showToast(response?.error || 'Failed to add to KG', 'error');
+            }
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-plus-lg me-1"></i>Add to Knowledge Graph';
+        }
+    });
+    
+    // Load initial data
+    loadStats();
+    loadRelations();
+    
+    // Event listeners
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+        loadStats();
+        loadRelations();
+    });
+    
+    document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+        searchInput.value = '';
+        statusFilter.value = 'pending';
+        relationTypeFilter.value = '';
+        sourceFilter.value = '';
+        currentPage = 1;
+        loadRelations();
+    });
+    
+    let searchTimeout;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            currentPage = 1;
+            loadRelations();
+        }, 300);
+    });
+    
+    [statusFilter, relationTypeFilter, sourceFilter].forEach(el => {
+        el.addEventListener('change', () => {
+            currentPage = 1;
+            loadRelations();
+        });
+    });
+    
+    selectAll.addEventListener('change', function() {
+        const checkboxes = relationsTable.querySelectorAll('.relation-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = this.checked;
+            if (this.checked) {
+                selectedIds.add(parseInt(cb.value));
+                cb.closest('tr').classList.add('selected-row');
+            } else {
+                selectedIds.delete(parseInt(cb.value));
+                cb.closest('tr').classList.remove('selected-row');
+            }
+        });
+        updateBulkButtons();
+    });
+    
+    bulkDeleteBtn.addEventListener('click', async () => {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`Delete ${selectedIds.size} selected relations?`)) return;
+        
+        try {
+            const idsParam = Array.from(selectedIds).map(id => `ids=${id}`).join('&');
+            const response = await apiCall(`/pending-relations/?${idsParam}`, 'DELETE');
+            if (response.success) {
+                showToast(`Deleted ${response.deleted} relations`, 'success');
+                selectedIds.clear();
+                loadStats();
+                loadRelations();
+            } else {
+                showToast(response.error || 'Failed to delete', 'error');
+            }
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    });
+    
+    // Edit modal save
+    document.getElementById('saveEditBtn').addEventListener('click', async () => {
+        const id = document.getElementById('editRelationId').value;
+        const btn = document.getElementById('saveEditBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+        
+        try {
+            const data = {
+                source_entity: document.getElementById('editSourceEntity').value,
+                source_type: document.getElementById('editSourceType').value,
+                relation_type: document.getElementById('editRelationType').value,
+                target_entity: document.getElementById('editTargetEntity').value,
+                target_type: document.getElementById('editTargetType').value,
+                status: document.getElementById('editStatus').value
+            };
+            
+            const response = await apiCall(`/pending-relations/${id}`, 'PUT', data);
+            if (response) {
+                showToast('Relation updated', 'success');
+                editModal.hide();
+                loadRelations();
+                loadStats();
+            }
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save Changes';
+        }
+    });
+    
+    // Functions
+    async function loadStats() {
+        try {
+            const stats = await apiCall('/pending-relations/stats');
+            document.getElementById('statPending').textContent = stats.pending || 0;
+            document.getElementById('statApproved').textContent = stats.approved || 0;
+            document.getElementById('statRejected').textContent = stats.rejected || 0;
+            
+            const sources = [];
+            if (stats.by_source?.llm) sources.push(`LLM: ${stats.by_source.llm}`);
+            if (stats.by_source?.bert) sources.push(`BERT: ${stats.by_source.bert}`);
+            document.getElementById('statSources').textContent = sources.join(' | ') || 'No data';
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+    
+    async function loadRelations() {
+        try {
+            const params = new URLSearchParams({
+                page: currentPage,
+                page_size: pageSize
+            });
+            
+            const status = statusFilter.value;
+            const relType = relationTypeFilter.value;
+            const source = sourceFilter.value;
+            const search = searchInput.value.trim();
+            
+            if (status) params.append('status', status);
+            if (relType) params.append('relation_type', relType);
+            if (source) params.append('source', source);
+            if (search) params.append('search', search);
+            if (sortColumn) {
+                params.append('sort_by', sortColumn);
+                params.append('sort_dir', sortDirection);
+            }
+            
+            const response = await apiCall(`/pending-relations/?${params}`);
+            
+            if (response.success) {
+                allRelations = response.relations;
+                totalPages = Math.ceil(response.total / pageSize);
+                totalCount.textContent = `${response.total} relations`;
+                renderTable(response.relations);
+                renderPagination();
+            }
+        } catch (error) {
+            relationsTable.innerHTML = `
+                <tr><td colspan="9" class="text-center py-5 text-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Error loading relations: ${error.message}
+                </td></tr>`;
+        }
+    }
+    
+    function getRelationBadgeClass(relType) {
+        const classes = {
+            'has_symptom': 'bg-primary',
+            'has_finding': 'bg-primary',
+            'suggests': 'bg-info',
+            'located_in': 'bg-secondary',
+            'indicated_for': 'bg-success',
+            'produces_result': 'bg-success',
+            'treats': 'bg-warning text-dark',
+            'first_line_for': 'bg-warning text-dark',
+            'contraindicated_in': 'bg-danger',
+            'rules_out': 'bg-danger',
+            'assesses': 'bg-dark',
+            'affects': 'bg-dark'
+        };
+        return classes[relType] || 'bg-secondary';
+    }
+    
+    function getStatusBadge(status) {
+        const badges = {
+            'pending': '<span class="badge bg-warning text-dark">Pending</span>',
+            'approved': '<span class="badge bg-success">Approved</span>',
+            'rejected': '<span class="badge bg-danger">Rejected</span>'
+        };
+        return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
+    }
+    
+    function getReviewBadge(reviewStatus, reviewScore) {
+        if (!reviewStatus) return '<span class="badge bg-light text-muted border">Not reviewed</span>';
+        const badges = {
+            'passed': `<span class="badge bg-success">${reviewScore ? (reviewScore * 100).toFixed(0) + '%' : 'Passed'}</span>`,
+            'failed': `<span class="badge bg-danger">${reviewScore ? (reviewScore * 100).toFixed(0) + '%' : 'Failed'}</span>`,
+            'needs_review': `<span class="badge bg-warning text-dark">${reviewScore ? (reviewScore * 100).toFixed(0) + '%' : 'Needs Review'}</span>`,
+            'pending': '<span class="badge bg-secondary">Pending</span>'
+        };
+        return badges[reviewStatus] || `<span class="badge bg-secondary">${reviewStatus}</span>`;
+    }
+    
+    function renderTable(relations) {
+        if (relations.length === 0) {
+            relationsTable.innerHTML = `
+                <tr><td colspan="9" class="text-center py-5 text-muted">
+                    <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                    <p class="mt-2">No relations found</p>
+                </td></tr>`;
+            return;
+        }
+        
+        relationsTable.innerHTML = relations.map(rel => {
+            const isSelected = selectedIds.has(rel.id);
+            const confidence = rel.confidence ? (rel.confidence * 100).toFixed(0) + '%' : '-';
+            const date = rel.created_at ? new Date(rel.created_at).toLocaleDateString() : '-';
+            const badgeClass = getRelationBadgeClass(rel.relation_type);
+            
+            return `
+                <tr class="${isSelected ? 'selected-row' : ''}">
+                    <td>
+                        <input type="checkbox" class="form-check-input relation-checkbox" 
+                               value="${rel.id}" ${isSelected ? 'checked' : ''}>
+                    </td>
+                    <td>
+                        <strong>${rel.source_entity}</strong>
+                        <small class="d-block text-muted">${rel.source_type}</small>
+                    </td>
+                    <td>
+                        <span class="badge ${badgeClass} relation-badge">${rel.relation_type}</span>
+                    </td>
+                    <td>
+                        <strong>${rel.target_entity}</strong>
+                        <small class="d-block text-muted">${rel.target_type}</small>
+                    </td>
+                    <td><span class="badge bg-light text-dark border">${confidence}</span></td>
+                    <td>${getReviewBadge(rel.review_status, rel.review_score)}</td>
+                    <td>
+                        <span class="badge source-badge ${rel.source === 'llm' ? 'bg-primary' : 'bg-success'}">${rel.source || '-'}</span>
+                        ${rel.source_model ? `<small class="d-block text-muted">${rel.source_model}</small>` : ''}
+                    </td>
+                    <td><small class="text-muted">${date}</small></td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-warning btn-sm action-btn"
+                                    onclick="reviewRelation(${rel.id})" title="Review">
+                                <i class="bi bi-clipboard-check"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm action-btn" 
+                                    onclick="viewRelation(${rel.id})" title="View Details">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm action-btn" 
+                                    onclick="editRelation(${rel.id})" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-outline-success btn-sm action-btn" 
+                                    onclick="approveRelation(${rel.id})" title="Add to KG">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm action-btn" 
+                                    onclick="deleteRelation(${rel.id})" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        // Add checkbox listeners
+        relationsTable.querySelectorAll('.relation-checkbox').forEach(cb => {
+            cb.addEventListener('change', function() {
+                const id = parseInt(this.value);
+                if (this.checked) {
+                    selectedIds.add(id);
+                    this.closest('tr').classList.add('selected-row');
+                } else {
+                    selectedIds.delete(id);
+                    this.closest('tr').classList.remove('selected-row');
+                }
+                updateBulkButtons();
+            });
+        });
+    }
+    
+    function renderPagination() {
+        if (totalPages <= 1) {
+            pagination.innerHTML = '';
+            return;
+        }
+        
+        let html = '';
+        html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage - 1})">&laquo;</a>
+        </li>`;
+        
+        for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+            html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="goToPage(${i})">${i}</a>
+            </li>`;
+        }
+        
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage + 1})">&raquo;</a>
+        </li>`;
+        
+        pagination.innerHTML = html;
+    }
+    
+    function updateBulkButtons() {
+        bulkDeleteBtn.disabled = selectedIds.size === 0;
+    }
+    
+    // Global functions
+    window.goToPage = function(page) {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        loadRelations();
+    };
+
+    window.reviewRelation = async function(id) {
+        try {
+            const btn = event.currentTarget;
+            const origHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            btn.disabled = true;
+
+            const rel = allRelations.find(r => r.id === id);
+            if (!rel) {
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+                showToast('Relation not found', 'error');
+                return;
+            }
+
+            const response = await fetch('/relation-reviews/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pending_relation_id: id,
+                    source_entity: rel.source_entity,
+                    source_type: rel.source_type,
+                    relation_type: rel.relation_type,
+                    target_entity: rel.target_entity,
+                    target_type: rel.target_type
+                })
+            });
+            const data = await response.json();
+
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+
+            if (response.ok) {
+                const score = data.overall_score ? Math.round(data.overall_score * 100) + '%' : '-';
+                showToast(`Relation reviewed: ${data.review_status} (${score})`, 'success');
+                loadRelations();
+            } else {
+                showToast(data.detail || 'Review failed', 'error');
+            }
+        } catch (error) {
+            console.error('Error reviewing relation:', error);
+            showToast('Error reviewing relation', 'error');
+        }
+    };
+
+    window.viewRelation = function(id) {
+        const rel = allRelations.find(r => r.id === id);
+        if (!rel) return;
+        
+        const confidence = rel.confidence ? (rel.confidence * 100).toFixed(0) + '%' : '-';
+        const date = rel.created_at ? new Date(rel.created_at).toLocaleString() : '-';
+        const badgeClass = getRelationBadgeClass(rel.relation_type);
+        
+        document.getElementById('viewDetailsContent').innerHTML = `
+            <div class="mb-4 p-3 bg-light rounded">
+                <div class="d-flex align-items-center justify-content-center gap-3 mb-3">
+                    <div class="text-center">
+                        <h5 class="mb-0">${rel.source_entity}</h5>
+                        <small class="text-muted">${rel.source_type}</small>
+                    </div>
+                    <div class="text-center">
+                        <i class="bi bi-arrow-right text-primary" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="text-center">
+                        <span class="badge ${badgeClass} fs-6">${rel.relation_type}</span>
+                    </div>
+                    <div class="text-center">
+                        <i class="bi bi-arrow-right text-primary" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="text-center">
+                        <h5 class="mb-0">${rel.target_entity}</h5>
+                        <small class="text-muted">${rel.target_type}</small>
+                    </div>
+                </div>
+            </div>
+            <table class="table table-bordered">
+                <tr><td class="fw-bold" width="150">Confidence</td><td>${confidence}</td></tr>
+                <tr><td class="fw-bold">Status</td><td>${getStatusBadge(rel.status)}</td></tr>
+                <tr><td class="fw-bold">Source</td><td><span class="badge ${rel.source === 'llm' ? 'bg-primary' : 'bg-success'}">${rel.source || '-'}</span></td></tr>
+                <tr><td class="fw-bold">Model</td><td>${rel.source_model || '-'}</td></tr>
+                <tr><td class="fw-bold">Review</td><td>${getReviewBadge(rel.review_status, rel.review_score)}</td></tr>
+                <tr><td class="fw-bold">Context</td><td>${rel.context || '<em class="text-muted">No context</em>'}</td></tr>
+                <tr><td class="fw-bold">Created</td><td>${date}</td></tr>
+            </table>
+        `;
+        viewDetailsModal.show();
+    };
+    
+    window.editRelation = function(id) {
+        const rel = allRelations.find(r => r.id === id);
+        if (!rel) return;
+        
+        document.getElementById('editRelationId').value = id;
+        document.getElementById('editSourceEntity').value = rel.source_entity;
+        document.getElementById('editSourceType').value = rel.source_type;
+        document.getElementById('editRelationType').value = rel.relation_type;
+        document.getElementById('editTargetEntity').value = rel.target_entity;
+        document.getElementById('editTargetType').value = rel.target_type;
+        document.getElementById('editStatus').value = rel.status;
+        
+        editModal.show();
+    };
+    
+    window.approveRelation = function(id) {
+        const rel = allRelations.find(r => r.id === id);
+        if (!rel) return;
+
+        document.getElementById('approveRelationId').value = id;
+        document.getElementById('approveSourceEntity').value = rel.source_entity;
+        document.getElementById('approveSourceType').value = rel.source_type;
+        document.getElementById('approveRelationType').value = rel.relation_type;
+        document.getElementById('approveTargetEntity').value = rel.target_entity;
+        document.getElementById('approveTargetType').value = rel.target_type;
+        updateApprovePreview();
+
+        approveKGModal.show();
+    };
+    
+    window.deleteRelation = async function(id) {
+        if (!confirm('Delete this relation?')) return;
+        
+        try {
+            const response = await apiCall(`/pending-relations/${id}`, 'DELETE');
+            if (response.success) {
+                showToast('Relation deleted', 'success');
+                selectedIds.delete(id);
+                loadStats();
+                loadRelations();
+            }
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    };
+});
+</script>
+{% endblock %}

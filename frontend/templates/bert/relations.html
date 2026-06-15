@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}BERT Relation Classification - Medical Entity Classifier{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-arrow-left-right me-2"></i>BERT Relation Classification</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-arrow-left-right me-2"></i>Relation Classification
+            </div>
+            <div class="card-body">
+                <form id="relationClassifyForm">
+                    <div class="mb-3">
+                        <label for="relationModelSelect" class="form-label">BERT Model</label>
+                        <select class="form-select" id="relationModelSelect">
+                            <option value="">Loading models...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="relationText" class="form-label">Medical Text</label>
+                        <textarea class="form-control" id="relationText" rows="8" 
+                            placeholder="Enter medical text to extract relations..."></textarea>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success" id="relationClassifyBtn">
+                            <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                            <i class="bi bi-arrow-left-right me-1"></i>Classify Relations
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Supported Relation Types -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>Supported Relation Types
+            </div>
+            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                <div class="list-group list-group-flush small">
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-primary me-2">has_symptom</span> Disease → Symptom</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-primary me-2">has_finding</span> Disease → Finding</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-info me-2">suggests</span> Finding → Disease</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-secondary me-2">located_in</span> Entity → Location</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-success me-2">indicated_for</span> Procedure → Condition</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-success me-2">produces_result</span> Procedure → Result</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-warning text-dark me-2">treats</span> Substance → Disease</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-warning text-dark me-2">first_line_for</span> Substance → Disease</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-danger me-2">contraindicated_in</span> Substance → Condition</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-danger me-2">rules_out</span> Finding → Disease</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-dark me-2">assesses</span> Tool → Disease</div>
+                    <div class="list-group-item px-0 py-1"><span class="badge bg-dark me-2">affects</span> Disease → Organ</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-diagram-3 me-2"></i>Relation Results</span>
+                <span class="badge bg-secondary d-none" id="relationResultStats"></span>
+            </div>
+            <div class="card-body" id="relationResultsContainer" style="max-height: 600px; overflow-y: auto;">
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-arrow-left-right" style="font-size: 3rem;"></i>
+                    <p class="mt-3">Enter medical text to extract relations</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- No Models Alert -->
+<div class="alert alert-warning mt-4" id="noModelsAlert" style="display: none;">
+    <h5><i class="bi bi-exclamation-triangle me-2"></i>No BERT Models Available</h5>
+    <p>Relation classification uses LLM as backend. A default LLM configuration is required.</p>
+    <a href="/app/config/llm" class="btn btn-warning">
+        <i class="bi bi-gear me-1"></i>Configure LLM
+    </a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+    const relationForm = document.getElementById('relationClassifyForm');
+    const relationTextArea = document.getElementById('relationText');
+    const relationResultsContainer = document.getElementById('relationResultsContainer');
+    const relationResultStats = document.getElementById('relationResultStats');
+    const relationClassifyBtn = document.getElementById('relationClassifyBtn');
+    const relationModelSelect = document.getElementById('relationModelSelect');
+    const noModelsAlert = document.getElementById('noModelsAlert');
+
+    // Load BERT models (relation models only)
+    try {
+        const models = await apiCall('/bert/models?model_type=relation');
+        if (models.length > 0) {
+            const options = models.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+            relationModelSelect.innerHTML = options;
+        } else {
+            relationModelSelect.innerHTML = '<option value="">No models available</option>';
+            relationModelSelect.disabled = true;
+            noModelsAlert.style.display = 'block';
+        }
+    } catch (error) {
+        relationModelSelect.innerHTML = '<option value="">Error loading models</option>';
+        relationModelSelect.disabled = true;
+    }
+
+    relationForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const text = relationTextArea.value.trim();
+        if (!text) {
+            showToast('Please enter medical text', 'warning');
+            return;
+        }
+        
+        const modelName = relationModelSelect.value;
+        if (!modelName) {
+            showToast('Please select a BERT model', 'warning');
+            return;
+        }
+        
+        relationClassifyBtn.classList.add('loading');
+        relationClassifyBtn.disabled = true;
+        
+        try {
+            const response = await apiCall('/relations/classify/bert', 'POST', {
+                text: text,
+                model_name: modelName,
+                min_confidence: 0.5
+            });
+            
+            if (response.success && response.result) {
+                displayRelationResults(response);
+            } else {
+                relationResultsContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>${response.error || 'Classification failed'}
+                    </div>`;
+            }
+        } catch (error) {
+            relationResultsContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>${error.message}
+                </div>`;
+        } finally {
+            relationClassifyBtn.classList.remove('loading');
+            relationClassifyBtn.disabled = false;
+        }
+    });
+
+    function getRelationBadgeClass(relType) {
+        const classes = {
+            'has_symptom': 'bg-primary',
+            'has_finding': 'bg-primary',
+            'suggests': 'bg-info',
+            'located_in': 'bg-secondary',
+            'indicated_for': 'bg-success',
+            'produces_result': 'bg-success',
+            'treats': 'bg-warning text-dark',
+            'first_line_for': 'bg-warning text-dark',
+            'contraindicated_in': 'bg-danger',
+            'rules_out': 'bg-danger',
+            'assesses': 'bg-dark',
+            'affects': 'bg-dark'
+        };
+        return classes[relType] || 'bg-secondary';
+    }
+
+    function displayRelationResults(response) {
+        const relations = response.result.relations;
+        const modelUsed = response.model_used || 'Unknown';
+
+        if (relations.length === 0) {
+            relationResultsContainer.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>No medical relations found.
+                </div>`;
+            return;
+        }
+
+        // Deduplicate
+        const seen = new Set();
+        const uniqueRelations = relations.filter(rel => {
+            const key = `${rel.source_entity}_${rel.relation_type}_${rel.target_entity}`.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        relationResultStats.textContent = `${uniqueRelations.length} relations`;
+        relationResultStats.classList.remove('d-none');
+
+        let html = `
+            <div class="mb-3">
+                <small class="text-muted">Model: ${modelUsed} | Found ${uniqueRelations.length} relations</small>
+            </div>
+        `;
+
+        // Group by relation type
+        const grouped = {};
+        uniqueRelations.forEach(rel => {
+            if (!grouped[rel.relation_type]) grouped[rel.relation_type] = [];
+            grouped[rel.relation_type].push(rel);
+        });
+
+        for (const [relType, items] of Object.entries(grouped)) {
+            const badgeClass = getRelationBadgeClass(relType);
+            html += `
+                <div class="mb-3">
+                    <h6 class="mb-2">
+                        <span class="badge ${badgeClass}">${relType}</span>
+                        <span class="text-muted ms-2">(${items.length})</span>
+                    </h6>
+            `;
+            
+            items.forEach(rel => {
+                const confidence = Math.round((rel.confidence || 0) * 100);
+                html += `
+                    <div class="card mb-2 border-start border-3" style="border-left-color: var(--bs-success) !important;">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center flex-wrap gap-2">
+                                    <span class="badge bg-light text-dark border">${rel.source_entity}</span>
+                                    <small class="text-muted">(${rel.source_type})</small>
+                                    <i class="bi bi-arrow-right text-success"></i>
+                                    <span class="badge ${badgeClass}">${rel.relation_type}</span>
+                                    <i class="bi bi-arrow-right text-success"></i>
+                                    <span class="badge bg-light text-dark border">${rel.target_entity}</span>
+                                    <small class="text-muted">(${rel.target_type})</small>
+                                </div>
+                                <span class="badge bg-light text-dark">${confidence}%</span>
+                            </div>
+                            ${rel.context ? `<small class="text-muted d-block mt-1"><i class="bi bi-quote me-1"></i>${rel.context}</small>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+        }
+
+        // Save button
+        html += `
+            <div class="d-grid mt-3">
+                <button class="btn btn-outline-success btn-sm" onclick="saveBertRelations()">
+                    <i class="bi bi-save me-1"></i>Save Relations as Pending
+                </button>
+            </div>
+        `;
+
+        relationResultsContainer.innerHTML = html;
+
+        // Store relations for saving
+        window._lastBertRelations = uniqueRelations;
+        window._lastBertRelationModel = modelUsed;
+    }
+
+    window.saveBertRelations = async function() {
+        if (!window._lastBertRelations || window._lastBertRelations.length === 0) return;
+        
+        try {
+            for (const rel of window._lastBertRelations) {
+                await apiCall('/pending-relations/', 'POST', {
+                    source_entity: rel.source_entity,
+                    source_type: rel.source_type,
+                    relation_type: rel.relation_type,
+                    target_entity: rel.target_entity,
+                    target_type: rel.target_type,
+                    confidence: rel.confidence,
+                    context: rel.context,
+                    source: 'bert',
+                    source_model: window._lastBertRelationModel
+                });
+            }
+            showToast(`Saved ${window._lastBertRelations.length} relations`, 'success');
+        } catch (error) {
+            showToast('Error saving relations: ' + error.message, 'error');
+        }
+    };
+});
+</script>
+{% endblock %}

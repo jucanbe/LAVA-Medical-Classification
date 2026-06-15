@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+{% block title %}Documentation - Medical Entity Classifier{% endblock %}
+
+{% block extra_css %}
+<style>
+    .docs-container { max-width: 960px; margin: 0 auto; }
+    .docs-container h2 { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--bs-border-color); }
+    .docs-container h2:first-of-type { border-top: none; margin-top: 1rem; }
+    .docs-container h3 { margin-top: 1.5rem; color: #495057; }
+    .docs-toc { position: sticky; top: 70px; max-height: calc(100vh - 90px); overflow-y: auto; font-size: 0.875rem; }
+    .docs-toc a { color: #495057; text-decoration: none; display: block; padding: 0.2rem 0; }
+    .docs-toc a:hover { color: var(--bs-primary); }
+    .docs-toc .toc-h3 { padding-left: 1rem; }
+    .callout { border-left: 4px solid; padding: 0.75rem 1rem; border-radius: 0.25rem; margin: 1rem 0; }
+    .callout-info { border-color: #0d6efd; background: rgba(13,110,253,.06); }
+    .callout-warning { border-color: #ffc107; background: rgba(255,193,7,.08); }
+    .callout-tip { border-color: #198754; background: rgba(25,135,84,.06); }
+    .shortcut-key { display: inline-block; background: #e9ecef; border: 1px solid #ced4da; border-radius: 3px; padding: 0 6px; font-family: monospace; font-size: 0.85rem; }
+    pre { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 0.375rem; padding: 1rem; overflow-x: auto; }
+    code { font-size: 0.875rem; }
+    .entity-type-table td:first-child { white-space: nowrap; }
+    .workflow-step { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
+    .workflow-step .step-number { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--bs-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.875rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Table of Contents (sidebar) -->
+    <div class="col-lg-3 d-none d-lg-block">
+        <nav class="docs-toc">
+            <h6 class="text-uppercase text-muted mb-2"><i class="bi bi-list-nested me-1"></i>Contents</h6>
+            <a href="#overview">Overview</a>
+            <a href="#getting-started">Getting Started</a>
+            <a class="toc-h3" href="#gs-setup-llm">Set up an LLM server</a>
+            <a class="toc-h3" href="#gs-first-classification">Your first classification</a>
+            <a href="#classification">Classification</a>
+            <a class="toc-h3" href="#cl-llm">LLM Entity Classification</a>
+            <a class="toc-h3" href="#cl-bert">BERT Entity Classification</a>
+            <a class="toc-h3" href="#cl-relations">Relation Classification</a>
+            <a class="toc-h3" href="#cl-classify-all">Classify All</a>
+            <a class="toc-h3" href="#cl-compare-with">Compare with (KG backend)</a>
+            <a href="#entity-types">Entity Types</a>
+            <a href="#knowledge-graph">Knowledge Graph</a>
+            <a class="toc-h3" href="#kg-ttl">TTL Files (Internal KG)</a>
+            <a class="toc-h3" href="#kg-external">External KG (SPARQL)</a>
+            <a class="toc-h3" href="#kg-sparql-console">SPARQL Console</a>
+            <a href="#review">Entity & Relation Review</a>
+            <a class="toc-h3" href="#rv-pending">Pending Items</a>
+            <a class="toc-h3" href="#rv-scorecard">5C Scorecard</a>
+            <a class="toc-h3" href="#rv-bulk">Bulk Review</a>
+            <a href="#bert-training">BERT Training</a>
+            <a class="toc-h3" href="#bt-export">Export IOB Data</a>
+            <a class="toc-h3" href="#bt-train">Train a Model</a>
+            <a class="toc-h3" href="#bt-manage">Manage Models</a>
+            <a href="#configuration">Configuration</a>
+            <a class="toc-h3" href="#cfg-llm">LLM Servers</a>
+            <a class="toc-h3" href="#cfg-triple">Triple Store</a>
+            <a class="toc-h3" href="#cfg-entity">Entity / Relation Config</a>
+            <a href="#docker">Docker Deployment</a>
+            <a href="#api">REST API</a>
+        </nav>
+    </div>
+
+    <!-- Main documentation content -->
+    <div class="col-lg-9">
+        <div class="docs-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="h2 mb-0"><i class="bi bi-book me-2"></i>Documentation</h1>
+                <span class="badge bg-secondary">v1.0.0</span>
+            </div>
+
+            <!-- ────────────────── Overview ────────────────── -->
+            <h2 id="overview"><i class="bi bi-info-circle me-2"></i>Overview</h2>
+            <p>
+                <strong>Medical Entity Classifier</strong> is a full-stack application for extracting, classifying, and validating
+                medical entities and relations from clinical text. It supports two classification backends:
+            </p>
+            <ul>
+                <li><strong>LLM-based</strong> &mdash; Uses Large Language Models (via LM Studio, vLLM, or any OpenAI-compatible server) for high-quality, context-aware entity extraction.</li>
+                <li><strong>BERT-based</strong> &mdash; Uses locally fine-tuned BERT NER models for fast, offline classification.</li>
+            </ul>
+            <p>
+                Every extracted entity is automatically validated against a <strong>Knowledge Graph</strong> (internal TTL ontology files
+                and/or an external SPARQL endpoint like Apache Jena Fuseki). Non-matching entities are saved as <em>pending</em> for human
+                review using a <strong>5C quality scorecard</strong> (Correctness, Completeness, Consistency, Congruence, Coverage).
+            </p>
+
+            <!-- ────────────────── Getting Started ────────────────── -->
+            <h2 id="getting-started"><i class="bi bi-rocket-takeoff me-2"></i>Getting Started</h2>
+
+            <h3 id="gs-setup-llm">1. Set up an LLM server</h3>
+            <div class="workflow-step">
+                <div class="step-number">1</div>
+                <div>
+                    Install and start <a href="https://lmstudio.ai" target="_blank">LM Studio</a> (or any OpenAI-compatible server).
+                    Load a model such as <code>meta-llama-3.1-8b-instruct</code>.
+                    Make sure the server listens on <code>0.0.0.0:1234</code> if using Docker.
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="step-number">2</div>
+                <div>
+                    Go to <a href="/app/config/llm"><i class="bi bi-server"></i> Configuration &rarr; LLM Servers</a> and add a new configuration:
+                    <ul class="mt-1 mb-0">
+                        <li><strong>Name:</strong> any descriptive name</li>
+                        <li><strong>Base URL:</strong> <code>http://127.0.0.1:1234/v1</code> (or <code>http://host.docker.internal:1234/v1</code> inside Docker)</li>
+                        <li><strong>Model:</strong> the model identifier shown in LM Studio</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="step-number">3</div>
+                <div>
+                    Click <strong>Test Connection</strong> to verify. Set the configuration as <strong>default</strong>.
+                </div>
+            </div>
+
+            <h3 id="gs-first-classification">2. Your first classification</h3>
+            <p>Navigate to <a href="/app/llm/classify"><i class="bi bi-chat-text"></i> LLM Classification &rarr; Entity Classification</a>,
+               paste a clinical text (or use one of the example texts), and click <strong>Classify Entities</strong>. Results will show
+               each detected entity with its type, confidence, and KG validation status.</p>
+            <div class="callout callout-tip">
+                <i class="bi bi-lightbulb me-1"></i>
+                <strong>Tip:</strong> You can also drag-and-drop PDF, DOCX, or TXT files in the <em>Document Upload</em> tab for batch processing.
+            </div>
+
+            <!-- ────────────────── Classification ────────────────── -->
+            <h2 id="classification"><i class="bi bi-search me-2"></i>Classification</h2>
+
+            <h3 id="cl-llm">LLM Entity Classification</h3>
+            <p>
+                The <a href="/app/llm/classify">Entity Classification</a> page sends your text to the configured LLM, which identifies medical entities
+                and classifies them using the supported <a href="#entity-types">entity types</a>. Each entity receives:
+            </p>
+            <ul>
+                <li><strong>Confidence score</strong> (0&ndash;1) from the LLM.</li>
+                <li><strong>KG validation status:</strong> <span class="badge bg-success">exact_match</span>
+                    <span class="badge bg-info text-dark">similar_match</span>
+                    <span class="badge bg-warning text-dark">low_match</span>
+                    <span class="badge bg-danger">not_found</span></li>
+                <li><strong>Similar KG entities</strong> with similarity scores.</li>
+            </ul>
+            <p>Entities not found (or only partially matched) in the KG are automatically saved to <strong>Pending Entities</strong> for review.</p>
+
+            <h3 id="cl-bert">BERT Entity Classification</h3>
+            <p>
+                The <a href="/app/bert/classify">BERT Classification</a> page works identically but uses a locally loaded BERT NER model instead of an LLM.
+                BERT is faster and doesn't require a network connection, but needs a fine-tuned model (see <a href="#bert-training">BERT Training</a>).
+            </p>
+            <div class="callout callout-info">
+                <i class="bi bi-info-circle me-1"></i>
+                You must <strong>load a model</strong> from the <a href="/app/bert/models">Manage Models</a> page before BERT classification is available.
+            </div>
+
+            <h3 id="cl-relations">Relation Classification</h3>
+            <p>
+                The <a href="/app/llm/relations">Relation Classification</a> page extracts <strong>relationships</strong> between entities
+                (e.g., <em>"Heparin" treats "Pulmonary Embolism"</em>). Relations are defined as <strong>source &rarr; relation_type &rarr; target</strong>
+                triples and are validated against the KG, then saved to <strong>Pending Relations</strong>.
+            </p>
+
+            <h3 id="cl-classify-all">Classify All</h3>
+            <p>
+                <a href="/app/llm/classify-all">Classify All</a> combines entity and relation extraction in a single pass.
+                It uses the <strong>langextract</strong> library with Google Gemini or the configured LLM to extract both entities and relations,
+                generate an interactive visualization, and auto-import results.
+            </p>
+            <p>You can enable:</p>
+            <ul>
+                <li><strong>Use random KG samples</strong> &mdash; adds random examples from your KG as few-shot context to improve extraction quality.</li>
+                <li><strong>Use known entities/relations</strong> &mdash; includes your ontology's known types as guidance.</li>
+            </ul>
+
+            <h3 id="cl-compare-with">Compare with (KG backend)</h3>
+            <p>
+                All classification pages include a <strong>"Compare with"</strong> selector below the input area.
+                This controls which Knowledge Graph backend is queried for entity validation:
+            </p>
+            <table class="table table-sm">
+                <thead><tr><th>Option</th><th>Description</th><th>Speed</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>All</strong></td><td>Queries both internal TTL files and external SPARQL endpoint</td><td>Slowest (most thorough)</td></tr>
+                    <tr><td><strong>External KG</strong></td><td>Only queries the external SPARQL endpoint (e.g., Jena Fuseki)</td><td>Slow</td></tr>
+                    <tr><td><strong>Internal KG (TTL Files)</strong></td><td>Only searches the local rdflib entity cache from TTL files</td><td>Fast</td></tr>
+                </tbody>
+            </table>
+            <div class="callout callout-tip">
+                <i class="bi bi-lightbulb me-1"></i>
+                <strong>Tip:</strong> Use <em>Internal KG</em> for rapid prototyping. Switch to <em>All</em> for thorough validation against large external KGs.
+            </div>
+
+            <!-- ────────────────── Entity Types ────────────────── -->
+            <h2 id="entity-types"><i class="bi bi-tags me-2"></i>Entity Types</h2>
+            <p>The system classifies medical entities into 14 types:</p>
+            <table class="table table-sm table-striped entity-type-table">
+                <thead><tr><th>Type</th><th>Description</th><th>Examples</th></tr></thead>
+                <tbody>
+                    <tr><td><code>disease</code></td><td>Pathological conditions</td><td>Pulmonary embolism, diabetes</td></tr>
+                    <tr><td><code>symptom</code></td><td>Symptoms</td><td>Dyspnea, fever, headache</td></tr>
+                    <tr><td><code>finding</code></td><td>Clinical or imaging findings</td><td>Filling defect, tachycardia</td></tr>
+                    <tr><td><code>organ</code></td><td>Anatomical structures</td><td>Pulmonary artery, lung</td></tr>
+                    <tr><td><code>imaging_procedure</code></td><td>Imaging procedures</td><td>CT angiography, MRI</td></tr>
+                    <tr><td><code>examination_procedure</code></td><td>Clinical exams / lab tests</td><td>Blood test, urinalysis</td></tr>
+                    <tr><td><code>therapeutic_procedure</code></td><td>Therapeutic procedures</td><td>Thrombectomy, surgery</td></tr>
+                    <tr><td><code>imaging_result</code></td><td>Imaging results</td><td>CT shows embolus</td></tr>
+                    <tr><td><code>examination_measure</code></td><td>Examination measures</td><td>Blood pressure reading</td></tr>
+                    <tr><td><code>parameter</code></td><td>Quantitative parameters</td><td>D-dimer, heart rate</td></tr>
+                    <tr><td><code>score</code></td><td>Clinical scores</td><td>Wells score, SOFA score</td></tr>
+                    <tr><td><code>therapy</code></td><td>Therapies</td><td>Anticoagulation therapy</td></tr>
+                    <tr><td><code>substance</code></td><td>Drugs / substances</td><td>Heparin, insulin, contrast agent</td></tr>
+                    <tr><td><code>adverse_event</code></td><td>Adverse events</td><td>Bleeding, allergic reaction</td></tr>
+                </tbody>
+            </table>
+
+            <!-- ────────────────── Knowledge Graph ────────────────── -->
+            <h2 id="knowledge-graph"><i class="bi bi-diagram-3 me-2"></i>Knowledge Graph</h2>
+
+            <h3 id="kg-ttl">TTL Files (Internal KG)</h3>
+            <p>
+                Place <code>.ttl</code> (Turtle) ontology files in the <code>KnowledgeGraph/</code> folder. The app loads them on startup
+                and builds an in-memory entity cache for fast matching. You can manage which files are active from
+                <a href="/app/kg/overview">KG Overview</a>.
+            </p>
+            <div class="callout callout-info">
+                <i class="bi bi-info-circle me-1"></i>
+                In Docker, this folder is a <strong>bind mount</strong> from the host &mdash; changes are reflected immediately.
+            </div>
+
+            <h3 id="kg-external">External KG (SPARQL Endpoint)</h3>
+            <p>
+                You can connect to an external SPARQL endpoint (e.g., <strong>Apache Jena Fuseki</strong>) from
+                <a href="/app/config/triple-store"><i class="bi bi-database"></i> Configuration &rarr; Triple Store</a>.
+                Add a new backend of type <strong>SPARQL</strong> with the endpoint URL (e.g., <code>http://localhost:3030/medical/query</code>).
+                Enable it and the system will query it alongside internal TTL files during validation.
+            </p>
+
+            <h3 id="kg-sparql-console">SPARQL Console</h3>
+            <p>
+                The <a href="/app/kg/sparql">SPARQL Query</a> page provides an interactive console to run arbitrary SPARQL queries
+                against your configured endpoints. Results are displayed in a table format.
+            </p>
+
+            <!-- ────────────────── Review ────────────────── -->
+            <h2 id="review"><i class="bi bi-clipboard2-check me-2"></i>Entity &amp; Relation Review</h2>
+
+            <h3 id="rv-pending">Pending Items</h3>
+            <p>
+                Entities and relations that don't have an <span class="badge bg-success">exact_match</span> in the KG are automatically
+                saved to the pending lists:
+            </p>
+            <ul>
+                <li><a href="/app/entities/pending">Pending Entities</a> &mdash; shows all unvalidated entities with sortable columns, filters, and batch operations.</li>
+                <li><a href="/app/relations/pending">Pending Relations</a> &mdash; same interface for relations (source &rarr; type &rarr; target triples).</li>
+            </ul>
+            <p>From the pending page you can manually approve, reject, or delete entities before they enter the KG.</p>
+
+            <h3 id="rv-scorecard">5C Scorecard</h3>
+            <p>
+                The <a href="/app/entities/review">Entity Review</a> and <a href="/app/relations/review">Relation Review</a> pages
+                evaluate each item on five quality dimensions:
+            </p>
+            <table class="table table-sm">
+                <thead><tr><th>Dimension</th><th>What it measures</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>Correctness</strong></td><td>Is the text a valid medical term? Checks character validity, length, format.</td></tr>
+                    <tr><td><strong>Completeness</strong></td><td>Is the text a viable, non-trivial medical term?  Penalizes very short or symbol-only text.</td></tr>
+                    <tr><td><strong>Consistency</strong></td><td>Is the entity type consistent with the text content? Uses LLM or heuristic classification.</td></tr>
+                    <tr><td><strong>Congruence</strong></td><td>Does it match similar entities in the KG? Measures semantic similarity.</td></tr>
+                    <tr><td><strong>Coverage</strong></td><td>How well is this entity type represented in the KG? Checks broader ontology coverage.</td></tr>
+                </tbody>
+            </table>
+            <p>Each dimension yields a percentage score. An overall weighted score determines the recommendation:
+               <span class="badge bg-success">Approve</span>,
+               <span class="badge bg-warning text-dark">Review</span>, or
+               <span class="badge bg-danger">Reject</span>.
+            </p>
+
+            <h3 id="rv-bulk">Bulk Review</h3>
+            <p>
+                Both review pages support <strong>bulk operations</strong>:
+            </p>
+            <ul>
+                <li><strong>Review All Pending</strong> &mdash; evaluates all unreviewed items sequentially with a progress bar. A <strong>Cancel</strong> button lets you stop at any point.</li>
+                <li><strong>Re-evaluate All</strong> &mdash; re-scores all items (including previously reviewed ones).</li>
+            </ul>
+
+            <!-- ────────────────── BERT Training ────────────────── -->
+            <h2 id="bert-training"><i class="bi bi-mortarboard me-2"></i>BERT Training</h2>
+
+            <h3 id="bt-export">Export IOB Data</h3>
+            <p>
+                Go to <a href="/app/llm/export">LLM Classification &rarr; Export IOB</a> to generate IOB-formatted training data from
+                classified texts. This data can be used to fine-tune a BERT NER model.
+            </p>
+
+            <h3 id="bt-train">Train a Model</h3>
+            <p>
+                Navigate to <a href="/app/bert/train">BERT Classification &rarr; Train Model</a>. Upload your IOB data, configure
+                hyperparameters (epochs, learning rate, batch size), and start training. Progress and loss curves are shown in real time.
+            </p>
+
+            <h3 id="bt-manage">Manage Models</h3>
+            <p>
+                The <a href="/app/bert/models">Manage Models</a> page lets you load, unload, delete, and set a default BERT model.
+                Models are stored in the <code>BERT_models/</code> folder (bind-mounted in Docker).
+            </p>
+
+            <!-- ────────────────── Configuration ────────────────── -->
+            <h2 id="configuration"><i class="bi bi-gear me-2"></i>Configuration</h2>
+
+            <h3 id="cfg-llm">LLM Servers</h3>
+            <p>
+                <a href="/app/config/llm">LLM Servers</a> manages connection profiles for OpenAI-compatible LLM servers.
+                Each profile stores:
+            </p>
+            <ul>
+                <li><strong>Base URL</strong> &mdash; the server endpoint (e.g., <code>http://127.0.0.1:1234/v1</code>)</li>
+                <li><strong>Model name</strong> &mdash; the model identifier</li>
+                <li><strong>API key</strong> &mdash; authentication key (use <code>EMPTY</code> for local servers)</li>
+                <li><strong>Temperature &amp; max tokens</strong> &mdash; generation parameters</li>
+                <li><strong>Custom prompts</strong> &mdash; entity prompt, relation prompt, classify-all prompt</li>
+            </ul>
+            <p>One profile can be marked as <strong>default</strong> and will be used by all classification pages automatically.</p>
+
+            <h3 id="cfg-triple">Triple Store</h3>
+            <p>
+                <a href="/app/config/triple-store">Triple Store</a> manages connections to external RDF stores.
+                Supported types:
+            </p>
+            <ul>
+                <li><strong>SPARQL endpoint</strong> &mdash; connects to a remote store like Apache Jena Fuseki.</li>
+                <li><strong>File-based (TTL)</strong> &mdash; loads a TTL file directly.</li>
+            </ul>
+            <p>Multiple backends can be enabled simultaneously. They are queried in parallel during validation.</p>
+
+            <h3 id="cfg-entity">Entity / Relation Configuration</h3>
+            <p>
+                The <a href="/app/config/entity">Entity Configuration</a> and <a href="/app/config/relation">Relation Configuration</a>
+                pages let you tune the <strong>5C scorecard</strong> weights and thresholds:
+            </p>
+            <ul>
+                <li>Weights for each of the 5 dimensions (must sum to 1.0)</li>
+                <li>Approve / Reject thresholds</li>
+                <li>Minimum length, similarity thresholds, etc.</li>
+            </ul>
+
+            <!-- ────────────────── Docker ────────────────── -->
+            <h2 id="docker"><i class="bi bi-box-seam me-2"></i>Docker Deployment</h2>
+
+            <h3>Quick Start</h3>
+<pre><code># Build and run
+docker compose up --build
+
+# Run in background
+docker compose up -d --build</code></pre>
+
+            <h3>Volume Mounts</h3>
+            <table class="table table-sm">
+                <thead><tr><th>Host Path</th><th>Container Path</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr><td><code>./KnowledgeGraph/</code></td><td><code>/app/KnowledgeGraph/</code></td><td>TTL ontology files (read/write)</td></tr>
+                    <tr><td><code>./BERT_models/</code></td><td><code>/app/BERT_models/</code></td><td>BERT model checkpoints</td></tr>
+                    <tr><td><code>./data/</code></td><td><code>/app/data/</code></td><td>SQLite database (auto-created)</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Connecting to LM Studio from Docker</h3>
+            <p>
+                The <code>docker-compose.yml</code> sets <code>DEFAULT_VLLM_BASE_URL=http://host.docker.internal:1234/v1</code>.
+                For this to work, LM Studio must listen on <strong><code>0.0.0.0:1234</code></strong> (not <code>127.0.0.1</code>).
+                Check <em>Settings &rarr; Server</em> in LM Studio.
+            </p>
+            <div class="callout callout-warning">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                <strong>Note:</strong> If the LLM server is unreachable from the container, you can still save a configuration by appending
+                <code>?verify_connection=false</code> to the POST request, or by running the app outside Docker.
+            </div>
+
+            <!-- ────────────────── API ────────────────── -->
+            <h2 id="api"><i class="bi bi-file-code me-2"></i>REST API</h2>
+            <p>
+                The full interactive API documentation is available at <a href="/docs" target="_blank"><strong>/docs</strong></a> (Swagger UI)
+                and <a href="/redoc" target="_blank"><strong>/redoc</strong></a> (ReDoc).
+            </p>
+            <h3>Key Endpoints</h3>
+            <table class="table table-sm">
+                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="badge bg-success">POST</span></td><td><code>/classify/</code></td><td>LLM entity classification (text)</td></tr>
+                    <tr><td><span class="badge bg-success">POST</span></td><td><code>/classify/document</code></td><td>LLM entity classification (document upload)</td></tr>
+                    <tr><td><span class="badge bg-success">POST</span></td><td><code>/bert/classify</code></td><td>BERT entity classification (text)</td></tr>
+                    <tr><td><span class="badge bg-success">POST</span></td><td><code>/bert/classify/document</code></td><td>BERT classification (document upload)</td></tr>
+                    <tr><td><span class="badge bg-success">POST</span></td><td><code>/classify-all/text</code></td><td>Combined entity + relation extraction</td></tr>
+                    <tr><td><span class="badge bg-primary">GET</span></td><td><code>/pending-entities/</code></td><td>List pending entities (filterable)</td></tr>
+                    <tr><td><span class="badge bg-primary">GET</span></td><td><code>/pending-relations/</code></td><td>List pending relations (filterable)</td></tr>
+                    <tr><td><span class="badge bg-success">POST</span></td><td><code>/entity-review/{id}/evaluate</code></td><td>Evaluate entity (5C scorecard)</td></tr>
+                    <tr><td><span class="badge bg-success">POST</span></td><td><code>/relation-review/{id}/evaluate</code></td><td>Evaluate relation (5C scorecard)</td></tr>
+                    <tr><td><span class="badge bg-primary">GET</span></td><td><code>/llm-config/</code></td><td>List LLM configurations</td></tr>
+                    <tr><td><span class="badge bg-success">POST</span></td><td><code>/sparql/query</code></td><td>Execute SPARQL query</td></tr>
+                    <tr><td><span class="badge bg-primary">GET</span></td><td><code>/health</code></td><td>Health check</td></tr>
+                </tbody>
+            </table>
+
+            <div class="callout callout-info">
+                <i class="bi bi-info-circle me-1"></i>
+                Most classification endpoints accept a <code>kg_backend</code> query parameter (<code>all</code>, <code>internal</code>, or <code>external</code>)
+                to control which KG backends are queried during validation.
+            </div>
+
+            <div class="mb-5"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
