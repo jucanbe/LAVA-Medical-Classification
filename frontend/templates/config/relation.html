@@ -247,7 +247,7 @@
                     <div class="col-6">
                         <label class="form-label">Novelty Bonus</label>
                         <input type="number" class="form-control" id="coverage_novelty_bonus" 
-                               min="0" max="1" step="0.05" value="0.3">
+                               min="0" max="0.5" step="0.05" value="0.3">
                         <div class="form-text">Bonus for novel relations</div>
                     </div>
                 </div>
@@ -319,7 +319,7 @@
                         <label class="form-label">Agreement Bonus</label>
                         <input type="number" class="form-control" id="consistency_agreement_bonus" 
                                min="0" max="1" step="0.05" value="0.3">
-                        <div class="form-text">Bonus when LLM &amp; BERT agree</div>
+                        <div class="form-text">Not used for relations: each triple is stored from a single extractor, so there is no independent agreement to reward</div>
                     </div>
                     <div class="col-6">
                         <label class="form-label">Base Score</label>
@@ -362,8 +362,8 @@
                     </tr>
                     <tr>
                         <td><code>KG Bonus</code></td>
-                        <td>Extra bonus when a similar relation already exists in the Knowledge Graph.</td>
-                        <td>$score = base + bonus \times 0.5$ if KG match</td>
+                        <td>Extra bonus when this exact triple (source, relation, target) already exists in the Knowledge Graph.</td>
+                        <td>$score = base + bonus \times 0.5$ if the triple is found in the KG</td>
                         <td>Base 0.9 + Bonus 0.1 = <strong>1.0</strong> for KG-confirmed</td>
                     </tr>
                     
@@ -373,9 +373,9 @@
                     </tr>
                     <tr>
                         <td><code>Novelty Threshold</code></td>
-                        <td>Maximum number of similar relations in KG to consider the new one as "novel" (fills a gap).</td>
-                        <td>If <code>similar_count &lt; threshold</code> → relation is novel</td>
-                        <td>Threshold=3: If 1 similar → ✓ Novel; If 5 → ✗ Redundant</td>
+                        <td>If the source entity already has this many relations of the same type in the KG, a new triple only earns half the novelty bonus.</td>
+                        <td>Triple already in KG → <code>0.3</code>; new triple → <code>0.5 + bonus</code>; new triple but source has ≥ threshold relations of this type → <code>0.5 + bonus/2</code></td>
+                        <td>Threshold=3: source has 1 <code>has_symptom</code> → <strong>0.8</strong>; has 4 → <strong>0.65</strong></td>
                     </tr>
                     <tr>
                         <td><code>Novelty Bonus</code></td>
@@ -439,13 +439,12 @@
                     </tr>
                     <tr>
                         <td><code>Agreement Bonus</code></td>
-                        <td>Bonus when both LLM and BERT classifiers detect the same relation. Indicates higher confidence.</td>
+                        <td>Not used for relations. Each triple is stored once, from the first extractor that produced it, so there is no second opinion to agree with.</td>
                         <td>
-                            $score = confidence + bonus$ if both agree<br>
-                            $score = \min(0.85, confidence)$ if single source
+                            $score = \min(0.8, confidence)$ for every extractor (LLM, BERT, langextract)
                         </td>
                         <td>
-                            Both: confidence 0.7 + bonus 0.3 = <strong>1.0</strong>
+                            Confidence 0.95 → <strong>0.8</strong>; 0.6 → <strong>0.6</strong>
                         </td>
                     </tr>
                     <tr>
@@ -461,9 +460,9 @@
         <!-- Overall Formula -->
         <div class="alert alert-secondary mt-3">
             <h6><i class="bi bi-calculator me-2"></i>Overall Score Formula</h6>
-            <p class="mb-2">The final relation score is calculated as the weighted sum of the 5 metrics, adapted from the <em>"7 Cs for Synthetic Medical Data Evaluation"</em> (Zamzmi et al., 2025):</p>
+            <p class="mb-2">The final relation score is the weighted mean of the 5 metrics, adapted from the <em>"7 Cs for Synthetic Medical Data Evaluation"</em> (Zamzmi et al., 2025). Coverage is left out, and the other weights renormalized, when the Knowledge Graph is unavailable:</p>
             <div class="text-center mb-3" style="font-size: 1.1rem;">
-                $Score_{total} = \sum_{i=1}^{5} (score_i \times weight_i)$
+                $Score_{total} = \frac{\sum_{i \in assessed} score_i \times weight_i}{\sum_{i \in assessed} weight_i}$
             </div>
             <p class="mb-1">Expanded:</p>
             <code style="font-size: 0.9rem;">

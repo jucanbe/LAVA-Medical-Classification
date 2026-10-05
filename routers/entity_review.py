@@ -21,53 +21,144 @@ from models.entities import (
     CompletenessMetrics,
     ConsistencyMetrics,
 )
+from models.entities import MedicalEntity, MedicalEntityType, normalize_entity_type
+from models.review_defaults import SCORING_VERSION
 from services.entity_reviewer import EntityReviewService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/entity-reviews", tags=["Entity Reviews"])
 
-_kg_service = None
-_bert_service = None
 _review_service = None
 
 
 def get_kg_service():
-    """Get or create the Knowledge Graph service instance."""
-    global _kg_service
-    if _kg_service is None:
-        try:
-            from services.knowledge_graph import KnowledgeGraphService
-            _kg_service = KnowledgeGraphService()
-            _kg_service.load_ttl_files()
-        except Exception as e:
-            logger.warning(f"Could not initialize KG service: {e}")
-            _kg_service = None
-    return _kg_service
+    """The shared Knowledge Graph service, or None if it cannot be initialized."""
+    try:
+        from services.knowledge_graph import get_kg_service as _get_shared_kg_service
+        return _get_shared_kg_service()
+    except Exception as e:
+        logger.error(f"Could not initialize KG service: {e}", exc_info=True)
+        return None
 
 
 def get_bert_service():
-    """Get or create the BERT NER service instance."""
-    global _bert_service
-    if _bert_service is None:
-        try:
-            from services.bert_ner import BERTNERService
-            _bert_service = BERTNERService()
-        except Exception as e:
-            logger.warning(f"Could not initialize BERT service: {e}")
-            _bert_service = None
-    return _bert_service
+    """The shared BERT NER service, or None if it cannot be initialized."""
+    try:
+        from services.bert_ner import get_bert_ner_service
+        return get_bert_ner_service()
+    except Exception as e:
+        logger.error(f"Could not initialize BERT service: {e}", exc_info=True)
+        return None
 
 
 def get_review_service():
-    """Get or create the Entity Review service instance."""
+    """Get the Entity Review service, bound to the current shared KG/BERT services."""
     global _review_service
     if _review_service is None:
-        _review_service = EntityReviewService(
-            kg_service=get_kg_service(),
-            bert_service=get_bert_service()
-        )
+        _review_service = EntityReviewService()
+    # Re-bind on every call: the KG singleton is replaced when it is reloaded.
+    _review_service.kg_service = get_kg_service()
+    _review_service.bert_service = get_bert_service()
     return _review_service
+
+
+def _load_json_list(raw: Optional[str], field: str, review_id: int) -> list:
+    if not raw:
+        return []
+    try:
+        value = json.loads(raw)
+        return value if isinstance(value, list) else []
+    except (TypeError, ValueError) as e:
+        logger.warning(f"Review {review_id}: could not parse stored {field}: {e}")
+        return []
+
+
+def _snapshot(review: EntityReviewDB) -> dict:
+    """The scoring-related state of a stored review, for score_history."""
+    return {
+        "scoring_version": review.scoring_version,
+        "congruence_score": review.congruence_score,
+        "coverage_score": review.coverage_score,
+        "constraint_score": review.constraint_score,
+        "completeness_score": review.completeness_score,
+        "consistency_score": review.consistency_score,
+        "overall_score": review.overall_score,
+        "review_status": review.review_status,
+        "recommendation": review.recommendation,
+        "reviewed_by": review.reviewed_by,
+        "recorded_at": (review.updated_at or review.created_at or datetime.utcnow()).isoformat(),
+    }
+
+
+def _apply_evaluation(review: EntityReviewDB, evaluation: dict) -> None:
+    """Write an evaluation into a review row.
+
+    If the row already holds scores, they are appended to score_history first,
+    so re-evaluation never discards earlier results.
+    """
+    if review.overall_score is not None:
+        history = _load_json_list(review.score_history, "score_history", review.id)
+        history.append(_snapshot(review))
+        review.score_history = json.dumps(history)
+    
+    congruence = evaluation["congruence"]
+    coverage = evaluation["coverage"]
+    constraint = evaluation["constraint"]
+    completeness = evaluation["completeness"]
+    consistency = evaluation["consistency"]
+    
+    review.congruence_score = congruence.score if congruence else None
+    review.congruence_nearest_entity = congruence.nearest_entity if congruence else None
+    review.congruence_nearest_uri = congruence.nearest_uri if congruence else None
+    review.congruence_embedding_distance = congruence.embedding_distance if congruence else None
+    
+    review.coverage_score = coverage.score if coverage else None
+    review.coverage_similar_entities_count = coverage.similar_entities_count if coverage else None
+    review.coverage_is_novel = coverage.is_novel if coverage else None
+    
+    review.constraint_score = constraint.score
+    review.constraint_violations = json.dumps(constraint.violations)
+    review.constraint_ontology_valid = constraint.ontology_valid
+    review.constraint_type_valid = constraint.type_valid
+    
+    review.completeness_score = completeness.score
+    review.completeness_has_type = completeness.has_type
+    review.completeness_has_definition = completeness.has_definition
+    review.completeness_has_normalized_form = completeness.has_normalized_form
+    review.completeness_has_context = completeness.has_context
+    review.completeness_has_confidence = completeness.has_confidence
+    
+    review.consistency_score = consistency.score
+    review.consistency_type_confidence = consistency.type_confidence
+    review.consistency_alternate_types = json.dumps(consistency.alternate_types)
+    review.consistency_bert_agreement = consistency.bert_agreement
+    review.consistency_bert_status = consistency.bert_status
+    
+    review.overall_score = evaluation["overall_score"]
+    review.review_status = evaluation["review_status"]
+    review.recommendation = evaluation["recommendation"]
+    review.scoring_version = evaluation["scoring_version"]
+    review.reviewed_by = "auto"
+    review.updated_at = datetime.utcnow()
+
+
+async def _pending_inputs(db: AsyncSession, pending_entity_id: Optional[int]) -> dict:
+    """Evaluation inputs stored on the linked pending entity."""
+    inputs = {"context": None, "confidence": None, "normalized_form": None, "source": None}
+    if pending_entity_id:
+        result = await db.execute(
+            select(PendingEntityDB).where(PendingEntityDB.id == pending_entity_id)
+        )
+        pending = result.scalar_one_or_none()
+        if pending:
+            inputs.update(
+                context=pending.context,
+                confidence=pending.confidence,
+                normalized_form=pending.normalized_text,
+                source=pending.source,
+            )
+    return inputs
 
 
 def _convert_to_response(review: EntityReviewDB) -> EntityReviewResponse:
@@ -87,49 +178,38 @@ def _convert_to_response(review: EntityReviewDB) -> EntityReviewResponse:
         coverage = CoverageMetrics(
             score=review.coverage_score,
             similar_entities_count=review.coverage_similar_entities_count or 0,
-            is_novel=review.coverage_is_novel or False,
-            fills_gap=review.coverage_is_novel or False
+            is_novel=bool(review.coverage_is_novel),
+            fills_gap=bool(review.coverage_is_novel)
         )
     
     constraint = None
     if review.constraint_score is not None:
-        violations = []
-        if review.constraint_violations:
-            try:
-                violations = json.loads(review.constraint_violations)
-            except:
-                violations = []
         constraint = ConstraintMetrics(
             score=review.constraint_score,
-            violations=violations,
+            violations=_load_json_list(review.constraint_violations, "constraint_violations", review.id),
             ontology_valid=review.constraint_ontology_valid,
-            type_valid=review.constraint_type_valid or True
+            type_valid=True if review.constraint_type_valid is None else review.constraint_type_valid
         )
     
     completeness = None
     if review.completeness_score is not None:
         completeness = CompletenessMetrics(
             score=review.completeness_score,
-            has_type=review.completeness_has_type or False,
-            has_definition=review.completeness_has_definition or False,
-            has_normalized_form=review.completeness_has_normalized_form or False,
-            has_context=review.completeness_has_context or False,
-            has_confidence=True
+            has_type=bool(review.completeness_has_type),
+            has_definition=bool(review.completeness_has_definition),
+            has_normalized_form=bool(review.completeness_has_normalized_form),
+            has_context=bool(review.completeness_has_context),
+            has_confidence=bool(review.completeness_has_confidence)
         )
     
     consistency = None
     if review.consistency_score is not None:
-        alternate_types = []
-        if review.consistency_alternate_types:
-            try:
-                alternate_types = json.loads(review.consistency_alternate_types)
-            except:
-                alternate_types = []
         consistency = ConsistencyMetrics(
             score=review.consistency_score,
             type_confidence=review.consistency_type_confidence or 0.0,
-            alternate_types=alternate_types,
-            bert_agreement=review.consistency_bert_agreement
+            alternate_types=_load_json_list(review.consistency_alternate_types, "consistency_alternate_types", review.id),
+            bert_agreement=review.consistency_bert_agreement,
+            bert_status=review.consistency_bert_status
         )
     
     return EntityReviewResponse(
@@ -146,6 +226,8 @@ def _convert_to_response(review: EntityReviewDB) -> EntityReviewResponse:
         review_status=review.review_status or "pending",
         recommendation=review.recommendation,
         review_notes=review.review_notes,
+        scoring_version=review.scoring_version,
+        score_history=_load_json_list(review.score_history, "score_history", review.id),
         created_at=review.created_at.isoformat() if review.created_at else "",
         updated_at=review.updated_at.isoformat() if review.updated_at else ""
     )
@@ -165,6 +247,9 @@ async def create_entity_review(
     3. **Constraint** - Clinical validity and constraint adherence
     4. **Completeness** - Presence of all required attributes
     5. **Consistency** - Type coherence and cross-validation agreement
+    
+    An existing review for the same text and type is returned unchanged; use
+    the re-evaluate endpoints to rescore it.
     """
     review_service = get_review_service()
     
@@ -172,80 +257,28 @@ async def create_entity_review(
         select(EntityReviewDB).where(
             EntityReviewDB.entity_text == request.entity_text,
             EntityReviewDB.entity_type == request.entity_type
-        )
+        ).order_by(EntityReviewDB.created_at.desc())
     )
-    existing = existing_result.scalar_one_or_none()
+    existing = existing_result.scalars().first()
     if existing:
         return _convert_to_response(existing)
     
-    context = None
-    confidence = None
-    normalized_form = None
-    source = None
-    
-    if request.pending_entity_id:
-        result = await db.execute(
-            select(PendingEntityDB).where(PendingEntityDB.id == request.pending_entity_id)
-        )
-        pending = result.scalar_one_or_none()
-        if pending:
-            context = pending.context
-            confidence = pending.confidence
-            normalized_form = pending.normalized_text
-            source = pending.source
+    inputs = await _pending_inputs(db, request.pending_entity_id)
     
     evaluation = await review_service.evaluate_entity(
         entity_text=request.entity_text,
         entity_type=request.entity_type,
-        normalized_form=normalized_form,
-        context=context,
-        confidence=confidence,
-        source=source,
         run_bert_validation=request.run_bert_validation,
-        run_llm_validation=request.run_llm_validation
+        run_llm_validation=request.run_llm_validation,
+        **inputs,
     )
-    
-    congruence = evaluation["congruence"]
-    coverage = evaluation["coverage"]
-    constraint = evaluation["constraint"]
-    completeness = evaluation["completeness"]
-    consistency = evaluation["consistency"]
     
     review_db = EntityReviewDB(
         pending_entity_id=request.pending_entity_id,
         entity_text=request.entity_text,
         entity_type=request.entity_type,
-        
-        congruence_score=congruence.score,
-        congruence_nearest_entity=congruence.nearest_entity,
-        congruence_nearest_uri=congruence.nearest_uri,
-        congruence_embedding_distance=congruence.embedding_distance,
-        
-        coverage_score=coverage.score,
-        coverage_similar_entities_count=coverage.similar_entities_count,
-        coverage_is_novel=coverage.is_novel,
-        
-        constraint_score=constraint.score,
-        constraint_violations=json.dumps(constraint.violations),
-        constraint_ontology_valid=constraint.ontology_valid,
-        constraint_type_valid=constraint.type_valid,
-        
-        completeness_score=completeness.score,
-        completeness_has_type=completeness.has_type,
-        completeness_has_definition=completeness.has_definition,
-        completeness_has_normalized_form=completeness.has_normalized_form,
-        completeness_has_context=completeness.has_context,
-        
-        consistency_score=consistency.score,
-        consistency_type_confidence=consistency.type_confidence,
-        consistency_alternate_types=json.dumps(consistency.alternate_types),
-        consistency_bert_agreement=consistency.bert_agreement,
-        
-        overall_score=evaluation["overall_score"],
-        review_status=evaluation["review_status"],
-        recommendation=evaluation["recommendation"],
-        reviewed_by="auto"
     )
+    _apply_evaluation(review_db, evaluation)
     
     db.add(review_db)
     await db.commit()
@@ -453,7 +486,7 @@ async def update_entity_review(
                 EntityReviewDB.id != review_id
             )
         )
-        if existing_review.scalar_one_or_none():
+        if existing_review.first():
             raise HTTPException(
                 status_code=409,
                 detail=f"An entity review with the same text and type already exists"
@@ -466,7 +499,7 @@ async def update_entity_review(
                 PendingEntityDB.id != review.pending_entity_id
             )
         )
-        if existing_pending.scalar_one_or_none():
+        if existing_pending.first():
             raise HTTPException(
                 status_code=409,
                 detail=f"A pending entity with the same text and type already exists"
@@ -583,9 +616,9 @@ async def bulk_review_entities(
     for entity_id in request.entity_ids:
         try:
             existing_result = await db.execute(
-                select(EntityReviewDB).where(EntityReviewDB.pending_entity_id == entity_id)
+                select(EntityReviewDB.id).where(EntityReviewDB.pending_entity_id == entity_id)
             )
-            if existing_result.scalar_one_or_none():
+            if existing_result.first():
                 skipped.append({"id": entity_id, "reason": "Already reviewed"})
                 continue
 
@@ -599,12 +632,12 @@ async def bulk_review_entities(
                 continue
 
             text_existing = await db.execute(
-                select(EntityReviewDB).where(
+                select(EntityReviewDB.id).where(
                     EntityReviewDB.entity_text == pending.text,
                     EntityReviewDB.entity_type == pending.entity_type
                 )
             )
-            if text_existing.scalar_one_or_none():
+            if text_existing.first():
                 skipped.append({"id": entity_id, "reason": "Duplicate entity text already reviewed"})
                 continue
 
@@ -619,35 +652,12 @@ async def bulk_review_entities(
                 run_llm_validation=request.run_llm_validation
             )
 
-            congruence = evaluation["congruence"]
-            coverage = evaluation["coverage"]
-            constraint = evaluation["constraint"]
-            completeness = evaluation["completeness"]
-            consistency = evaluation["consistency"]
-
             review_db = EntityReviewDB(
                 pending_entity_id=entity_id,
                 entity_text=pending.text,
                 entity_type=pending.entity_type,
-                congruence_score=congruence.score,
-                congruence_nearest_entity=congruence.nearest_entity,
-                congruence_nearest_uri=congruence.nearest_uri,
-                coverage_score=coverage.score,
-                coverage_similar_entities_count=coverage.similar_entities_count,
-                coverage_is_novel=coverage.is_novel,
-                constraint_score=constraint.score,
-                constraint_violations=json.dumps(constraint.violations),
-                constraint_type_valid=constraint.type_valid,
-                completeness_score=completeness.score,
-                completeness_has_type=completeness.has_type,
-                completeness_has_context=completeness.has_context,
-                consistency_score=consistency.score,
-                consistency_bert_agreement=consistency.bert_agreement,
-                overall_score=evaluation["overall_score"],
-                review_status=evaluation["review_status"],
-                recommendation=evaluation["recommendation"],
-                reviewed_by="auto"
             )
+            _apply_evaluation(review_db, evaluation)
 
             db.add(review_db)
             await db.commit()
@@ -660,7 +670,7 @@ async def bulk_review_entities(
             })
 
         except Exception as e:
-            logger.error(f"Error reviewing entity {entity_id}: {e}")
+            logger.error(f"Error reviewing entity {entity_id}: {e}", exc_info=True)
             await db.rollback()
             errors.append({"id": entity_id, "error": str(e)})
 
@@ -679,112 +689,74 @@ async def bulk_review_entities(
 async def re_evaluate_all_reviews(
     run_bert_validation: bool = True,
     run_llm_validation: bool = False,
+    dry_run: bool = Query(False, description="Compute new scores without saving them"),
+    only_legacy: bool = Query(False, description="Only reviews scored by an older scoring version"),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Re-evaluate all existing reviews with the current configuration.
-    Updates scores and statuses based on the latest evaluation logic.
+    Re-evaluate existing reviews with the current configuration and scoring logic.
+    
+    The previous scores of every updated review are appended to its
+    score_history, so historical results are kept. With dry_run=true nothing
+    is written and the old/new scores are returned for inspection.
     """
     review_service = get_review_service()
     updated = []
     errors = []
     
-    try:
-        result = await db.execute(select(EntityReviewDB))
-        reviews = result.scalars().all()
-        
-        if not reviews:
-            return {
-                "success": True,
-                "updated": 0,
-                "errors": 0,
-                "message": "No reviews to re-evaluate"
-            }
-        
-        for review in reviews:
-            try:
-                context = None
-                confidence = None
-                normalized_form = None
-                source = None
-
-                if review.pending_entity_id:
-                    pending_result = await db.execute(
-                        select(PendingEntityDB).where(PendingEntityDB.id == review.pending_entity_id)
-                    )
-                    pending = pending_result.scalar_one_or_none()
-                    if pending:
-                        context = pending.context
-                        confidence = pending.confidence
-                        normalized_form = pending.normalized_text
-                        source = pending.source
-
-                evaluation = await review_service.evaluate_entity(
-                    entity_text=review.entity_text,
-                    entity_type=review.entity_type,
-                    normalized_form=normalized_form,
-                    context=context,
-                    confidence=confidence,
-                    source=source,
-                    run_bert_validation=run_bert_validation,
-                    run_llm_validation=run_llm_validation
-                )
-
-                congruence = evaluation["congruence"]
-                coverage = evaluation["coverage"]
-                constraint = evaluation["constraint"]
-                completeness = evaluation["completeness"]
-                consistency = evaluation["consistency"]
-
-                review.congruence_score = congruence.score
-                review.congruence_nearest_entity = congruence.nearest_entity
-                review.congruence_nearest_uri = congruence.nearest_uri
-                review.coverage_score = coverage.score
-                review.coverage_similar_entities_count = coverage.similar_entities_count
-                review.coverage_is_novel = coverage.is_novel
-                review.constraint_score = constraint.score
-                review.constraint_violations = json.dumps(constraint.violations)
-                review.constraint_type_valid = constraint.type_valid
-                review.completeness_score = completeness.score
-                review.completeness_has_type = completeness.has_type
-                review.completeness_has_context = completeness.has_context
-                review.consistency_score = consistency.score
-                review.consistency_bert_agreement = consistency.bert_agreement
-                review.overall_score = evaluation["overall_score"]
-                review.review_status = evaluation["review_status"]
-                review.recommendation = evaluation["recommendation"]
-                review.updated_at = datetime.utcnow()
-
-                await db.commit()
-                updated.append({
-                    "id": review.id,
-                    "entity_text": review.entity_text,
-                    "old_status": review.review_status,
-                    "new_status": evaluation["review_status"],
-                    "overall_score": evaluation["overall_score"]
-                })
-
-            except Exception as e:
-                logger.error(f"Error re-evaluating review {review.id}: {e}")
-                await db.rollback()
-                errors.append({"id": review.id, "error": str(e)})
-
+    query = select(EntityReviewDB)
+    if only_legacy:
+        query = query.where(
+            (EntityReviewDB.scoring_version.is_(None)) | (EntityReviewDB.scoring_version != SCORING_VERSION)
+        )
+    reviews = (await db.execute(query)).scalars().all()
+    
+    if not reviews:
         return {
             "success": True,
-            "updated": len(updated),
-            "errors": len(errors),
-            "results": updated,
-            "error_details": errors
-        }
-        
-    except Exception as e:
-        logger.error(f"Error in re-evaluate-all: {e}")
-        return {
-            "success": False,
-            "error": str(e),
             "updated": 0,
-            "errors": 1
+            "errors": 0,
+            "dry_run": dry_run,
+            "message": "No reviews to re-evaluate"
         }
+    
+    for review in reviews:
+        try:
+            inputs = await _pending_inputs(db, review.pending_entity_id)
+            evaluation = await review_service.evaluate_entity(
+                entity_text=review.entity_text,
+                entity_type=review.entity_type,
+                run_bert_validation=run_bert_validation,
+                run_llm_validation=run_llm_validation,
+                **inputs,
+            )
+            change = {
+                "id": review.id,
+                "entity_text": review.entity_text,
+                "old_status": review.review_status,
+                "new_status": evaluation["review_status"],
+                "old_overall_score": review.overall_score,
+                "overall_score": evaluation["overall_score"],
+            }
+            if not dry_run:
+                _apply_evaluation(review, evaluation)
+                await db.commit()
+            updated.append(change)
+
+        except Exception as e:
+            logger.error(f"Error re-evaluating review {review.id}: {e}", exc_info=True)
+            await db.rollback()
+            errors.append({"id": review.id, "error": str(e)})
+
+    return {
+        "success": True,
+        "dry_run": dry_run,
+        "updated": 0 if dry_run else len(updated),
+        "evaluated": len(updated),
+        "errors": len(errors),
+        "results": updated,
+        "error_details": errors
+    }
 
 
 @router.post("/{review_id}/re-evaluate")
@@ -796,91 +768,47 @@ async def re_evaluate_single_review(
 ):
     """
     Re-evaluate a single existing review with the current configuration.
-    Updates scores and status based on the latest evaluation logic.
+    The previous scores are appended to the review's score_history.
     """
     review_service = get_review_service()
     
+    result = await db.execute(
+        select(EntityReviewDB).where(EntityReviewDB.id == review_id)
+    )
+    review = result.scalar_one_or_none()
+    
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    
     try:
-        result = await db.execute(
-            select(EntityReviewDB).where(EntityReviewDB.id == review_id)
-        )
-        review = result.scalar_one_or_none()
-        
-        if not review:
-            raise HTTPException(status_code=404, detail="Review not found")
-        
-        context = None
-        confidence = None
-        normalized_form = None
-        source = None
-        
-        if review.pending_entity_id:
-            pending_result = await db.execute(
-                select(PendingEntityDB).where(PendingEntityDB.id == review.pending_entity_id)
-            )
-            pending = pending_result.scalar_one_or_none()
-            if pending:
-                context = pending.context
-                confidence = pending.confidence
-                normalized_form = pending.normalized_text
-                source = pending.source
-        
+        inputs = await _pending_inputs(db, review.pending_entity_id)
         evaluation = await review_service.evaluate_entity(
             entity_text=review.entity_text,
             entity_type=review.entity_type,
-            normalized_form=normalized_form,
-            context=context,
-            confidence=confidence,
-            source=source,
             run_bert_validation=run_bert_validation,
-            run_llm_validation=run_llm_validation
+            run_llm_validation=run_llm_validation,
+            **inputs,
         )
         
-        congruence = evaluation["congruence"]
-        coverage = evaluation["coverage"]
-        constraint = evaluation["constraint"]
-        completeness = evaluation["completeness"]
-        consistency = evaluation["consistency"]
-        
         old_status = review.review_status
-        
-        review.congruence_score = congruence.score
-        review.congruence_nearest_entity = congruence.nearest_entity
-        review.congruence_nearest_uri = congruence.nearest_uri
-        review.coverage_score = coverage.score
-        review.coverage_similar_entities_count = coverage.similar_entities_count
-        review.coverage_is_novel = coverage.is_novel
-        review.constraint_score = constraint.score
-        review.constraint_violations = json.dumps(constraint.violations)
-        review.constraint_type_valid = constraint.type_valid
-        review.completeness_score = completeness.score
-        review.completeness_has_type = completeness.has_type
-        review.completeness_has_context = completeness.has_context
-        review.consistency_score = consistency.score
-        review.consistency_bert_agreement = consistency.bert_agreement
-        review.overall_score = evaluation["overall_score"]
-        review.review_status = evaluation["review_status"]
-        review.recommendation = evaluation["recommendation"]
-        review.updated_at = datetime.utcnow()
+        _apply_evaluation(review, evaluation)
         
         await db.commit()
         await db.refresh(review)
-        
-        return {
-            "success": True,
-            "id": review.id,
-            "entity_text": review.entity_text,
-            "old_status": old_status,
-            "new_status": evaluation["review_status"],
-            "overall_score": evaluation["overall_score"],
-            "review": _convert_to_response(review)
-        }
-        
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Error re-evaluating review {review_id}: {e}")
+        await db.rollback()
+        logger.error(f"Error re-evaluating review {review_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+    
+    return {
+        "success": True,
+        "id": review.id,
+        "entity_text": review.entity_text,
+        "old_status": old_status,
+        "new_status": evaluation["review_status"],
+        "overall_score": evaluation["overall_score"],
+        "review": _convert_to_response(review)
+    }
 
 
 @router.get("/pending-entity/{pending_entity_id}", response_model=Optional[EntityReviewResponse])
@@ -926,16 +854,19 @@ async def evaluate_text_entity(
     
     explanation = review_service.get_score_explanation(evaluation)
     
+    def dump(metric):
+        return metric.model_dump() if metric is not None else None
+    
     return {
         "success": True,
         "entity_text": entity_text,
         "entity_type": entity_type,
         "evaluation": {
-            "congruence": evaluation["congruence"].model_dump(),
-            "coverage": evaluation["coverage"].model_dump(),
-            "constraint": evaluation["constraint"].model_dump(),
-            "completeness": evaluation["completeness"].model_dump(),
-            "consistency": evaluation["consistency"].model_dump(),
+            "congruence": dump(evaluation["congruence"]),
+            "coverage": dump(evaluation["coverage"]),
+            "constraint": dump(evaluation["constraint"]),
+            "completeness": dump(evaluation["completeness"]),
+            "consistency": dump(evaluation["consistency"]),
             "overall_score": evaluation["overall_score"],
             "review_status": evaluation["review_status"],
             "recommendation": evaluation["recommendation"]
@@ -966,16 +897,16 @@ async def add_review_to_kg(
         
         kg_service = get_kg_service()
         
-        from models.entities import MedicalEntity, MedicalEntityType
+        if kg_service is None:
+            raise HTTPException(status_code=503, detail="Knowledge Graph service is unavailable")
         
-        type_mapping = {
-            "finding": MedicalEntityType.FINDING,
-            "disease": MedicalEntityType.DISEASE,
-            "quantitative_measure": MedicalEntityType.QUANTITATIVE_MEASURE,
-            "substance": MedicalEntityType.SUBSTANCE,
-            "procedure": MedicalEntityType.PROCEDURE
-        }
-        entity_type_enum = type_mapping.get(review.entity_type, MedicalEntityType.FINDING)
+        canonical_type = normalize_entity_type(review.entity_type)
+        if canonical_type is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Entity type '{review.entity_type}' is not a valid type; edit the review first"
+            )
+        entity_type_enum = MedicalEntityType(canonical_type)
         
         medical_entity = MedicalEntity(
             text=review.entity_text,
@@ -991,6 +922,7 @@ async def add_review_to_kg(
         )
         
         if entity_uri:
+            kg_service.save_kg()
             if review.pending_entity_id:
                 pending_result = await db.execute(
                     select(PendingEntityDB).where(PendingEntityDB.id == review.pending_entity_id)

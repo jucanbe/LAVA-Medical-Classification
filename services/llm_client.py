@@ -1,7 +1,7 @@
 import httpx
 from openai import AsyncOpenAI
 from typing import Optional, Dict, Any, Type, TypeVar, Tuple
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 import json
 import logging
 import re
@@ -104,7 +104,10 @@ class LLMClient:
                 max_tokens=10
             )
             
-            if test_response.choices and test_response.choices[0].message.content:
+            # Reasoning models (e.g. Qwen3 in LM Studio) may spend the whole token
+            # budget "thinking", leaving content empty; any reply means the model works.
+            message = test_response.choices[0].message if test_response.choices else None
+            if message and (message.content or self._reasoning_text(message)):
                 await self._detect_capabilities()
                 self._connection_verified = True
                 return True, f"Successfully connected. Model '{self.model_name}' is responding.", model_list
@@ -117,6 +120,11 @@ class LLMClient:
             return False, f"Connection timeout to {self.base_url}", []
         except Exception as e:
             return False, f"Connection error: {str(e)}", []
+    
+    @staticmethod
+    def _reasoning_text(message) -> Optional[str]:
+        """reasoning_content of a chat message, whether the SDK exposes it as an attribute or an extra field."""
+        return getattr(message, "reasoning_content", None) or (getattr(message, "model_extra", None) or {}).get("reasoning_content")
     
     async def _detect_capabilities(self):
         try:
@@ -180,7 +188,9 @@ class LLMClient:
                 )
                 return result
                 
-            except (json.JSONDecodeError, ValidationError) as e:
+            except ValueError as e:
+                # Invalid JSON, schema validation errors and empty responses
+                # (JSONDecodeError and ValidationError are ValueErrors) are retried.
                 last_error = e
                 logger.warning(f"Structured generation attempt {attempt + 1}/{retries} failed: {e}")
                 
@@ -261,9 +271,22 @@ CRITICAL RULES:
             **extra_params
         )
         
-        content = response.choices[0].message.content
+        message = response.choices[0].message
+        content = message.content
+        
+        if not content and "response_format" in extra_params:
+            # LM Studio returns the grammar-constrained output of reasoning
+            # models (e.g. Qwen3) in reasoning_content and leaves content empty.
+            content = self._reasoning_text(message)
+            if content:
+                logger.info("Structured output found in reasoning_content (content was empty)")
         
         if not content:
+            if response.choices[0].finish_reason == "length":
+                raise ValueError(
+                    f"LLM returned no output within max_tokens={max_tokens or self.max_tokens} "
+                    f"(reasoning models may use the whole budget thinking; increase max_tokens)"
+                )
             raise ValueError("LLM returned empty response")
         
         logger.debug(f"Original content (first 500 chars): {content[:500]}")

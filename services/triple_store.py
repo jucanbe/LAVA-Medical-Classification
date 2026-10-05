@@ -31,7 +31,8 @@ def get_disabled_ttl_files(ttl_directory: Optional[Path] = None) -> List[str]:
     try:
         with open(p, "r") as fp:
             return json.load(fp)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Could not read disabled TTL file list {p}: {e}")
         return []
 
 

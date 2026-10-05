@@ -251,6 +251,8 @@ class RelationReviewResponse(BaseModel):
     review_status: str = Field(..., description="Review status")
     recommendation: Optional[str] = Field(None, description="Recommendation: approve, reject, modify")
     review_notes: Optional[str] = Field(None, description="Additional review notes")
+    scoring_version: Optional[str] = Field(None, description="Scoring logic version (null = legacy, pre-2.0)")
+    score_history: List[dict] = Field(default_factory=list, description="Earlier score snapshots, oldest first")
     
     created_at: str = Field(..., description="Creation timestamp")
     updated_at: str = Field(..., description="Last update timestamp")

@@ -16,6 +16,7 @@ except ImportError:
 from models.entities import (
     MedicalEntity,
     MedicalEntityType,
+    normalize_relation_type,
     ValidatedEntity,
     KGMatch,
     KGMatchStatus,
@@ -27,29 +28,41 @@ logger = logging.getLogger(__name__)
 
 KG_DEFAULT_DIR = Path(__file__).parent.parent / "KnowledgeGraph"
 
+# KG classes compatible with each entity type: the coarse ontology classes
+# plus the fine-grained class that add_entity_to_kg() writes for that type.
 _ENTITY_TYPE_TO_KG_TYPES: Dict[str, List[str]] = {
     "disease": ["Disease"],
-    "symptom": ["Finding"],
+    "symptom": ["Finding", "Symptom"],
     "finding": ["Finding"],
-    "organ": ["Finding"],
-    "imaging_procedure": ["Procedure"],
-    "examination_procedure": ["Procedure"],
-    "therapeutic_procedure": ["Procedure"],
-    "imaging_result": ["Finding"],
-    "examination_measure": ["QuantitativeMeasure"],
-    "parameter": ["QuantitativeMeasure"],
-    "score": ["QuantitativeMeasure"],
-    "therapy": ["Substance", "Procedure"],
+    "organ": ["Finding", "Organ"],
+    "imaging_procedure": ["Procedure", "ImagingProcedure"],
+    "examination_procedure": ["Procedure", "ExaminationProcedure"],
+    "therapeutic_procedure": ["Procedure", "TherapeuticProcedure"],
+    "imaging_result": ["Finding", "ImagingResult"],
+    "examination_measure": ["QuantitativeMeasure", "ExaminationMeasure"],
+    "parameter": ["QuantitativeMeasure", "Parameter"],
+    "score": ["QuantitativeMeasure", "Score"],
+    "therapy": ["Substance", "Procedure", "Therapy"],
     "substance": ["Substance"],
-    "adverse_event": ["Finding", "Disease"],
+    "adverse_event": ["Finding", "Disease", "AdverseEvent"],
 }
+
+RELATION_NAMESPACE = "http://example.org/medical/relations/"
+
+# rdf:type values that mark schema resources (classes/properties), not entities.
+_SCHEMA_TYPES = {
+    str(OWL.Class), str(RDFS.Class), str(RDF.Property),
+    str(OWL.ObjectProperty), str(OWL.DatatypeProperty),
+    str(OWL.AnnotationProperty), str(OWL.Ontology),
+} if HAS_RDFLIB else set()
 
 
 def _try_get_active_backend():
     try:
         from services.triple_store import get_active_backend
         return get_active_backend()
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Could not query the active triple store backend: {e}")
         return None
 
 
@@ -57,7 +70,8 @@ def _try_get_external_backends():
     try:
         from services.triple_store import get_enabled_external_backends
         return get_enabled_external_backends()
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Could not list external triple store backends: {e}")
         return []
 
 
@@ -67,7 +81,8 @@ class KnowledgeGraphService:
     SIMILAR_MATCH_THRESHOLD = 0.70
     LOW_MATCH_THRESHOLD = 0.60
     
-    def __init__(self, kg_directory: Optional[str] = None):
+    def __init__(self, kg_directory: Optional[str] = None,
+                 type_map: Optional[Dict[str, List[str]]] = None):
 
         if not HAS_RDFLIB:
             raise ImportError(
@@ -76,6 +91,8 @@ class KnowledgeGraphService:
             )
         
         self.kg_directory = Path(kg_directory) if kg_directory else KG_DEFAULT_DIR
+        # entity type -> compatible KG class names (default: the project types)
+        self.type_map = _ENTITY_TYPE_TO_KG_TYPES if type_map is None else type_map
         self.graph = Graph()
         self._entities_cache: Dict[str, Dict] = {}
         self._loaded_files: List[str] = []
@@ -129,6 +146,18 @@ class KnowledgeGraphService:
         
         return new_triples
     
+    def _schema_resources(self) -> set:
+        """URIs of classes and properties. They carry labels but are not entities."""
+        schema = set()
+        for subj, obj in self.graph.subject_objects(RDF.type):
+            if str(obj) in _SCHEMA_TYPES:
+                schema.add(str(subj))
+            schema.add(str(obj))
+        for subj, obj in self.graph.subject_objects(RDFS.subClassOf):
+            schema.add(str(subj))
+            schema.add(str(obj))
+        return schema
+
     def _build_entity_cache(self):
         self._entities_cache.clear()
         
@@ -137,9 +166,12 @@ class KnowledgeGraphService:
             SKOS.prefLabel,
             SKOS.altLabel,
         ]
+        schema = self._schema_resources()
         
         for subj in self.graph.subjects():
             uri = str(subj)
+            if uri in schema:
+                continue
             if uri not in self._entities_cache:
                 self._entities_cache[uri] = {
                     'uri': uri,
@@ -183,7 +215,7 @@ class KnowledgeGraphService:
         """Check if a cached entity matches the requested entity_type filter."""
         if entity_type is None:
             return True
-        allowed_kg_types = _ENTITY_TYPE_TO_KG_TYPES.get(entity_type)
+        allowed_kg_types = self.type_map.get(entity_type)
         if not allowed_kg_types:
             return True
         for t in entity_data['types']:
@@ -361,6 +393,46 @@ class KnowledgeGraphService:
         merged = sorted(by_uri.values(), key=lambda x: x.similarity_score, reverse=True)
         return merged[:max_matches]
 
+
+    def find_relation_triples(
+        self,
+        source_entity: str,
+        relation_type: str,
+        target_entity: str,
+        source_type: Optional[str] = None,
+        target_type: Optional[str] = None,
+        min_score: Optional[float] = None,
+    ) -> Dict:
+        """Look up a (source, relation, target) triple in the local graph.
+
+        Endpoints are resolved to KG entities by label similarity
+        (>= EXACT_MATCH_THRESHOLD by default) and type compatibility. Returns
+        whether each endpoint is known, whether the exact triple exists and how
+        many relations of this type the resolved source already has.
+        """
+        from rdflib import URIRef
+
+        if min_score is None:
+            min_score = self.EXACT_MATCH_THRESHOLD
+        src = self.find_matches(source_entity, max_matches=10, min_score=min_score, entity_type=source_type)
+        tgt = self.find_matches(target_entity, max_matches=10, min_score=min_score, entity_type=target_type)
+        predicate = URIRef(RELATION_NAMESPACE + relation_type)
+        target_uris = {m.kg_uri for m in tgt}
+
+        triple_exists = False
+        source_relation_count = 0
+        for m in src:
+            objects = {str(o) for o in self.graph.objects(URIRef(m.kg_uri), predicate)}
+            source_relation_count = max(source_relation_count, len(objects))
+            if objects & target_uris:
+                triple_exists = True
+
+        return {
+            "source_known": bool(src),
+            "target_known": bool(tgt),
+            "triple_exists": triple_exists,
+            "source_relation_count": source_relation_count,
+        }
 
     async def find_matches_async(
         self,
@@ -822,7 +894,7 @@ class KnowledgeGraphService:
         source_uri = _get_or_create_entity_uri(source_entity, source_type)
         target_uri = _get_or_create_entity_uri(target_entity, target_type)
 
-        relation_uri = URIRef(f"http://example.org/medical/relations/{relation_type}")
+        relation_uri = URIRef(RELATION_NAMESPACE + normalize_relation_type(relation_type))
         self.graph.add((source_uri, relation_uri, target_uri))
 
         self._build_entity_cache()
@@ -854,8 +926,8 @@ def _resolve_kg_directory() -> Optional[str]:
         backend = get_active_backend()
         if isinstance(backend, InternalRDFLibBackend):
             return str(backend.ttl_directory)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Could not resolve KG directory from the active triple store: {e}")
     return None
 
 

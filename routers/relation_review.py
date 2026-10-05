@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Optional
 from datetime import datetime
@@ -14,6 +15,7 @@ from models.relations import (
     RelationReviewResponse,
     RelationReviewListResponse,
 )
+from models.review_defaults import SCORING_VERSION
 from services.relation_reviewer import RelationReviewService
 
 logger = logging.getLogger(__name__)
@@ -23,18 +25,35 @@ router = APIRouter(prefix="/relation-reviews", tags=["Relation Reviews"])
 _review_service = None
 
 
+def get_kg_service():
+    """The shared Knowledge Graph service, or None if it cannot be initialized."""
+    try:
+        from services.knowledge_graph import get_kg_service as _get_shared_kg_service
+        return _get_shared_kg_service()
+    except Exception as e:
+        logger.error(f"Could not initialize KG service for relation reviews: {e}", exc_info=True)
+        return None
+
+
 def get_review_service() -> RelationReviewService:
-    """Get or create the review service singleton."""
+    """Get the review service singleton, bound to the current shared KG service."""
     global _review_service
     if _review_service is None:
-        kg_service = None
-        try:
-            from services.kg_service import kg_service_instance
-            kg_service = kg_service_instance
-        except Exception:
-            pass
-        _review_service = RelationReviewService(kg_service=kg_service)
+        _review_service = RelationReviewService()
+    # Re-bind on every call: the KG singleton is replaced when it is reloaded.
+    _review_service.kg_service = get_kg_service()
     return _review_service
+
+
+def _load_history(review: RelationReviewDB) -> list:
+    if not review.score_history:
+        return []
+    try:
+        value = json.loads(review.score_history)
+        return value if isinstance(value, list) else []
+    except (TypeError, ValueError) as e:
+        logger.warning(f"Relation review {review.id}: could not parse score_history: {e}")
+        return []
 
 
 def _convert_to_response(review: RelationReviewDB) -> RelationReviewResponse:
@@ -56,50 +75,92 @@ def _convert_to_response(review: RelationReviewDB) -> RelationReviewResponse:
         review_status=review.review_status,
         recommendation=review.recommendation,
         review_notes=review.review_notes,
+        scoring_version=review.scoring_version,
+        score_history=_load_history(review),
         created_at=review.created_at.isoformat() if review.created_at else "",
         updated_at=review.updated_at.isoformat() if review.updated_at else "",
     )
 
 
+async def _pending_inputs(db: AsyncSession, pending_relation_id: Optional[int]) -> dict:
+    inputs = {"confidence": None, "context": None, "source": None}
+    if pending_relation_id:
+        result = await db.execute(
+            select(PendingRelationDB).where(PendingRelationDB.id == pending_relation_id)
+        )
+        pending = result.scalar_one_or_none()
+        if pending:
+            inputs.update(confidence=pending.confidence, context=pending.context, source=pending.source)
+    return inputs
+
+
+def _apply_scores(review: RelationReviewDB, scores: dict) -> None:
+    """Write scores into a review row, keeping earlier scores in score_history."""
+    if review.overall_score is not None:
+        history = _load_history(review)
+        history.append({
+            "scoring_version": review.scoring_version,
+            "congruence_score": review.congruence_score,
+            "coverage_score": review.coverage_score,
+            "constraint_score": review.constraint_score,
+            "completeness_score": review.completeness_score,
+            "consistency_score": review.consistency_score,
+            "overall_score": review.overall_score,
+            "review_status": review.review_status,
+            "recommendation": review.recommendation,
+            "recorded_at": (review.updated_at or review.created_at or datetime.utcnow()).isoformat(),
+        })
+        review.score_history = json.dumps(history)
+    review.congruence_score = scores["congruence_score"]
+    review.coverage_score = scores["coverage_score"]
+    review.constraint_score = scores["constraint_score"]
+    review.completeness_score = scores["completeness_score"]
+    review.consistency_score = scores["consistency_score"]
+    review.overall_score = scores["overall_score"]
+    review.review_status = scores["review_status"]
+    review.recommendation = scores["recommendation"]
+    review.scoring_version = scores["scoring_version"]
+    review.updated_at = datetime.utcnow()
+
+
+async def _score_review(
+    db: AsyncSession,
+    service: RelationReviewService,
+    review: RelationReviewDB,
+    inputs: dict,
+) -> dict:
+    return await service.evaluate_relation(
+        source_entity=review.source_entity,
+        source_type=review.source_type,
+        relation_type=review.relation_type,
+        target_entity=review.target_entity,
+        target_type=review.target_type,
+        **inputs,
+    )
+
+
 async def _score_and_build_review(
+    db: AsyncSession,
     service: RelationReviewService,
     source_entity: str,
     source_type: str,
     relation_type: str,
     target_entity: str,
     target_type: str,
-    confidence: Optional[float] = None,
-    context: Optional[str] = None,
-    source: Optional[str] = None,
+    inputs: dict,
     pending_relation_id: Optional[int] = None,
 ) -> RelationReviewDB:
     """Score a relation using the service and build a DB row."""
-    scores = await service.evaluate_relation(
-        source_entity=source_entity,
-        source_type=source_type,
-        relation_type=relation_type,
-        target_entity=target_entity,
-        target_type=target_type,
-        confidence=confidence,
-        context=context,
-        source=source,
-    )
-    return RelationReviewDB(
+    review = RelationReviewDB(
         pending_relation_id=pending_relation_id,
         source_entity=source_entity,
         source_type=source_type,
         relation_type=relation_type,
         target_entity=target_entity,
         target_type=target_type,
-        congruence_score=scores["congruence_score"],
-        coverage_score=scores["coverage_score"],
-        constraint_score=scores["constraint_score"],
-        completeness_score=scores["completeness_score"],
-        consistency_score=scores["consistency_score"],
-        overall_score=scores["overall_score"],
-        review_status=scores["review_status"],
-        recommendation=scores["recommendation"],
     )
+    _apply_scores(review, await _score_review(db, service, review, inputs))
+    return review
 
 
 @router.get(
@@ -191,37 +252,22 @@ async def create_review(
             RelationReviewDB.source_entity == request.source_entity,
             RelationReviewDB.relation_type == request.relation_type,
             RelationReviewDB.target_entity == request.target_entity,
-        )
-        dup_result = await db.execute(dup_query)
-        existing = dup_result.scalar_one_or_none()
+        ).order_by(RelationReviewDB.created_at.desc())
+        existing = (await db.execute(dup_query)).scalars().first()
         if existing:
             resp = _convert_to_response(existing)
-            return JSONResponse(content=resp.dict(), status_code=200, headers={"X-Already-Existed": "true"})
+            return JSONResponse(content=resp.model_dump(), status_code=200, headers={"X-Already-Existed": "true"})
 
-        confidence = None
-        context = None
-        source = None
-        if request.pending_relation_id:
-            pr_result = await db.execute(
-                select(PendingRelationDB).where(PendingRelationDB.id == request.pending_relation_id)
-            )
-            pending = pr_result.scalar_one_or_none()
-            if pending:
-                confidence = pending.confidence
-                context = pending.context
-                source = pending.source
-
-        service = get_review_service()
+        inputs = await _pending_inputs(db, request.pending_relation_id)
         review = await _score_and_build_review(
-            service,
+            db,
+            get_review_service(),
             source_entity=request.source_entity,
             source_type=request.source_type,
             relation_type=request.relation_type,
             target_entity=request.target_entity,
             target_type=request.target_type,
-            confidence=confidence,
-            context=context,
-            source=source,
+            inputs=inputs,
             pending_relation_id=request.pending_relation_id,
         )
 
@@ -232,7 +278,7 @@ async def create_review(
         return _convert_to_response(review)
     except Exception as e:
         await db.rollback()
-        logger.error(f"Error creating relation review: {e}")
+        logger.error(f"Error creating relation review: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -331,26 +377,24 @@ async def bulk_review_relations(db: AsyncSession = Depends(get_db)):
 
         for rel in pending_relations:
             try:
-                dup_query = select(RelationReviewDB).where(
+                dup_query = select(RelationReviewDB.id).where(
                     RelationReviewDB.source_entity == rel.source_entity,
                     RelationReviewDB.relation_type == rel.relation_type,
                     RelationReviewDB.target_entity == rel.target_entity,
                 )
-                dup_result = await db.execute(dup_query)
-                if dup_result.scalar_one_or_none():
-                        skipped += 1
-                        continue
+                if (await db.execute(dup_query)).first():
+                    skipped += 1
+                    continue
 
                 review = await _score_and_build_review(
+                    db,
                     service,
                     source_entity=rel.source_entity,
                     source_type=rel.source_type,
                     relation_type=rel.relation_type,
                     target_entity=rel.target_entity,
                     target_type=rel.target_type,
-                    confidence=rel.confidence,
-                    context=rel.context,
-                    source=rel.source,
+                    inputs={"confidence": rel.confidence, "context": rel.context, "source": rel.source},
                     pending_relation_id=rel.id,
                 )
                 db.add(review)
@@ -358,7 +402,7 @@ async def bulk_review_relations(db: AsyncSession = Depends(get_db)):
                 reviewed += 1
 
             except Exception as e:
-                logger.error(f"Error reviewing relation {rel.id}: {e}")
+                logger.error(f"Error reviewing relation {rel.id}: {e}", exc_info=True)
                 await db.rollback()
                 errors += 1
 
@@ -370,70 +414,57 @@ async def bulk_review_relations(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/re-evaluate-all", summary="Re-evaluate all existing relation reviews")
-async def re_evaluate_all_reviews(db: AsyncSession = Depends(get_db)):
-    """Re-evaluate all existing reviews with the current scoring logic and config."""
-    try:
-        result = await db.execute(select(RelationReviewDB))
-        reviews = result.scalars().all()
+async def re_evaluate_all_reviews(
+    dry_run: bool = Query(False, description="Compute new scores without saving them"),
+    only_legacy: bool = Query(False, description="Only reviews scored by an older scoring version"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Re-evaluate existing reviews with the current scoring logic and config.
 
-        if not reviews:
-            return {"success": True, "updated": 0, "errors": 0, "message": "No reviews to re-evaluate"}
+    Previous scores are appended to each review's score_history. With
+    dry_run=true nothing is written and old/new scores are returned.
+    """
+    query = select(RelationReviewDB)
+    if only_legacy:
+        query = query.where(
+            (RelationReviewDB.scoring_version.is_(None)) | (RelationReviewDB.scoring_version != SCORING_VERSION)
+        )
+    reviews = (await db.execute(query)).scalars().all()
 
-        service = get_review_service()
-        service._config_cache = None
-        service._config_loaded_at = None
+    if not reviews:
+        return {"success": True, "updated": 0, "errors": 0, "dry_run": dry_run, "message": "No reviews to re-evaluate"}
 
-        updated = 0
-        errors = 0
+    service = get_review_service()
+    results = []
+    errors = 0
 
-        for review in reviews:
-            try:
-                confidence = None
-                context = None
-                source = None
-                if review.pending_relation_id:
-                    pr_result = await db.execute(
-                        select(PendingRelationDB).where(PendingRelationDB.id == review.pending_relation_id)
-                    )
-                    pending = pr_result.scalar_one_or_none()
-                    if pending:
-                        confidence = pending.confidence
-                        context = pending.context
-                        source = pending.source
-
-                scores = await service.evaluate_relation(
-                    source_entity=review.source_entity,
-                    source_type=review.source_type,
-                    relation_type=review.relation_type,
-                    target_entity=review.target_entity,
-                    target_type=review.target_type,
-                    confidence=confidence,
-                    context=context,
-                    source=source,
-                )
-
-                review.congruence_score = scores["congruence_score"]
-                review.coverage_score = scores["coverage_score"]
-                review.constraint_score = scores["constraint_score"]
-                review.completeness_score = scores["completeness_score"]
-                review.consistency_score = scores["consistency_score"]
-                review.overall_score = scores["overall_score"]
-                review.review_status = scores["review_status"]
-                review.recommendation = scores["recommendation"]
-                review.updated_at = datetime.utcnow()
+    for review in reviews:
+        try:
+            inputs = await _pending_inputs(db, review.pending_relation_id)
+            scores = await _score_review(db, service, review, inputs)
+            results.append({
+                "id": review.id,
+                "old_status": review.review_status,
+                "new_status": scores["review_status"],
+                "old_overall_score": review.overall_score,
+                "overall_score": scores["overall_score"],
+            })
+            if not dry_run:
+                _apply_scores(review, scores)
                 await db.commit()
-                updated += 1
+        except Exception as e:
+            logger.error(f"Error re-evaluating relation review {review.id}: {e}", exc_info=True)
+            await db.rollback()
+            errors += 1
 
-            except Exception as e:
-                logger.error(f"Error re-evaluating review {review.id}: {e}")
-                await db.rollback()
-                errors += 1
-
-        return {"success": True, "updated": updated, "errors": errors}
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"Error in re-evaluate-all: {e}")
-        return {"success": False, "error": str(e), "updated": 0, "errors": 1}
+    return {
+        "success": True,
+        "dry_run": dry_run,
+        "updated": 0 if dry_run else len(results),
+        "evaluated": len(results),
+        "errors": errors,
+        "results": results,
+    }
 
 
 @router.post("/{review_id}/re-evaluate", summary="Re-evaluate a single relation review")
@@ -441,67 +472,36 @@ async def re_evaluate_single_review(
     review_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    """Re-evaluate a single review with the current scoring logic."""
+    """Re-evaluate a single review; previous scores go to score_history."""
+    result = await db.execute(
+        select(RelationReviewDB).where(RelationReviewDB.id == review_id)
+    )
+    review = result.scalar_one_or_none()
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+
     try:
-        result = await db.execute(
-            select(RelationReviewDB).where(RelationReviewDB.id == review_id)
-        )
-        review = result.scalar_one_or_none()
-        if not review:
-            raise HTTPException(status_code=404, detail="Review not found")
-
-        confidence = None
-        context = None
-        source = None
-        if review.pending_relation_id:
-            pr_result = await db.execute(
-                select(PendingRelationDB).where(PendingRelationDB.id == review.pending_relation_id)
-            )
-            pending = pr_result.scalar_one_or_none()
-            if pending:
-                confidence = pending.confidence
-                context = pending.context
-                source = pending.source
-
-        service = get_review_service()
-        scores = await service.evaluate_relation(
-            source_entity=review.source_entity,
-            source_type=review.source_type,
-            relation_type=review.relation_type,
-            target_entity=review.target_entity,
-            target_type=review.target_type,
-            confidence=confidence,
-            context=context,
-            source=source,
-        )
+        inputs = await _pending_inputs(db, review.pending_relation_id)
+        scores = await _score_review(db, get_review_service(), review, inputs)
 
         old_status = review.review_status
-        review.congruence_score = scores["congruence_score"]
-        review.coverage_score = scores["coverage_score"]
-        review.constraint_score = scores["constraint_score"]
-        review.completeness_score = scores["completeness_score"]
-        review.consistency_score = scores["consistency_score"]
-        review.overall_score = scores["overall_score"]
-        review.review_status = scores["review_status"]
-        review.recommendation = scores["recommendation"]
-        review.updated_at = datetime.utcnow()
+        _apply_scores(review, scores)
 
         await db.commit()
         await db.refresh(review)
-
-        return {
-            "success": True,
-            "id": review.id,
-            "old_status": old_status,
-            "new_status": scores["review_status"],
-            "overall_score": scores["overall_score"],
-        }
-    except HTTPException:
-        raise
     except Exception as e:
         await db.rollback()
-        logger.error(f"Error re-evaluating review {review_id}: {e}")
+        logger.error(f"Error re-evaluating relation review {review_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+    return {
+        "success": True,
+        "id": review.id,
+        "old_status": old_status,
+        "new_status": scores["review_status"],
+        "overall_score": scores["overall_score"],
+        "review": _convert_to_response(review),
+    }
 
 
 @router.get("/stats", summary="Get relation review statistics")

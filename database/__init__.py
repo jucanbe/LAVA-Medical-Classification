@@ -1,3 +1,6 @@
+"""
+Database module.
+"""
 from .connection import DatabaseManager, get_db, db_manager
 from .models import Base, LLMConfigDB
 

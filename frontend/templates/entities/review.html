@@ -456,19 +456,19 @@
                 <h6><i class="bi bi-calculator me-2"></i>Weight Justification <small class="text-muted" id="configLoadStatus"></small></h6>
                 <div id="weightJustificationContent">
                     <ul class="small mb-2">
-                        <li><strong>Congruence (<span id="weightCongruence">25</span>%)</strong> - High weight: Semantic alignment with existing KG terminology is crucial for interoperability and consistency.</li>
-                        <li><strong>Constraint (<span id="weightConstraint">25</span>%)</strong> - High weight: Clinical validity is paramount in medical data; invalid entities can cause patient safety issues.</li>
-                        <li><strong>Consistency (<span id="weightConsistency">20</span>%)</strong> - Medium-high: Agreement between independent classifiers (LLM + BERT) indicates reliable classification.</li>
-                        <li><strong>Coverage (<span id="weightCoverage">15</span>%)</strong> - Lower weight: Novelty is valuable but not critical; redundant valid entities are acceptable.</li>
-                        <li><strong>Completeness (<span id="weightCompleteness">15</span>%)</strong> - Lower weight: Missing optional fields (context, definition) don't invalidate the core entity.</li>
+                        <li><strong>Consistency (<span id="weightConsistency">45</span>%)</strong> - Highest weight: agreement between independent classifiers (LLM + BERT) was the strongest signal of correctness in validation.</li>
+                        <li><strong>Completeness (<span id="weightCompleteness">30</span>%)</strong> - Nearly constant for well-formed predictions; it shifts all scores together rather than ranking them.</li>
+                        <li><strong>Congruence (<span id="weightCongruence">20</span>%)</strong> - Similarity to existing KG terminology was the second most informative signal.</li>
+                        <li><strong>Constraint (<span id="weightConstraint">5</span>%)</strong> - Rule checks act mainly as a guard: almost every prediction satisfies them.</li>
+                        <li><strong>Coverage (<span id="weightCoverage">0</span>%)</strong> - No weight by default: for single predictions, novelty was inversely related to correctness.</li>
                     </ul>
                     <div class="d-flex align-items-center mb-2">
                         <div class="progress flex-grow-1" style="height: 24px; border-radius: 12px;">
-                            <div id="barCongruence" class="progress-bar bg-primary" style="width: 25%;" title="Congruence">25%</div>
-                            <div id="barConstraint" class="progress-bar bg-danger" style="width: 25%;" title="Constraint">25%</div>
-                            <div id="barConsistency" class="progress-bar" style="width: 20%; background-color: #6f42c1;" title="Consistency">20%</div>
-                            <div id="barCoverage" class="progress-bar bg-success" style="width: 15%;" title="Coverage">15%</div>
-                            <div id="barCompleteness" class="progress-bar bg-warning text-dark" style="width: 15%;" title="Completeness">15%</div>
+                            <div id="barCongruence" class="progress-bar bg-primary" style="width: 20%;" title="Congruence">20%</div>
+                            <div id="barConstraint" class="progress-bar bg-danger" style="width: 5%;" title="Constraint">5%</div>
+                            <div id="barConsistency" class="progress-bar" style="width: 45%; background-color: #6f42c1;" title="Consistency">45%</div>
+                            <div id="barCoverage" class="progress-bar bg-success" style="width: 0%;" title="Coverage">0%</div>
+                            <div id="barCompleteness" class="progress-bar bg-warning text-dark" style="width: 30%;" title="Completeness">30%</div>
                         </div>
                         <a href="/app/config/entity" class="btn btn-sm btn-outline-secondary ms-2" title="Configure Weights">
                             <i class="bi bi-gear"></i>
@@ -1136,7 +1136,7 @@
                         <h6 class="card-title mb-1"><i class="bi bi-arrow-repeat"></i>Consistency</h6>
                         <div class="d-flex justify-content-between align-items-center">
                             ${renderScore(eval_data.consistency?.score)}
-                            <small class="text-muted">BERT: ${eval_data.consistency?.bert_agreement === null ? 'N/A' : (eval_data.consistency?.bert_agreement ? '✓' : '✗')}</small>
+                            <small class="text-muted">BERT: ${eval_data.consistency?.bert_agreement == null ? escapeHtml(eval_data.consistency?.bert_status || 'N/A') : (eval_data.consistency?.bert_agreement ? '✓' : '✗')}</small>
                         </div>
                     </div>
                 </div>
@@ -1278,7 +1278,7 @@
                 }
                 break;
             case 'consistency':
-                details = `BERT agreement: ${metrics.bert_agreement === null ? 'N/A' : (metrics.bert_agreement ? '✓ Yes' : '✗ No')}`;
+                details = `BERT agreement: ${metrics.bert_agreement == null ? escapeHtml(metrics.bert_status || 'N/A') : (metrics.bert_agreement ? '✓ Yes' : '✗ No')}`;
                 break;
         }
         

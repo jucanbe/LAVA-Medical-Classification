@@ -47,8 +47,9 @@ ID2LABEL = {idx: label for idx, label in enumerate(ENTITY_LABELS)}
 class BERTNERService:
     """Service for BERT-based Named Entity Recognition."""
     
-    def __init__(self, models_dir: str = "BERT_models"):
+    def __init__(self, models_dir: str = "BERT_models", device: Optional[str] = None):
         self.models_dir = Path(models_dir)
+        self._requested_device = device
         self.models_dir.mkdir(parents=True, exist_ok=True)
         
         self.entity_models_dir = self.models_dir / "Entities"
@@ -71,7 +72,10 @@ class BERTNERService:
                 import torch
                 self._transformers = transformers
                 self._torch = torch
-                self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                if self._requested_device:
+                    self._device = torch.device(self._requested_device)
+                else:
+                    self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                 logger.info(f"BERT NER service initialized. Device: {self._device}")
             except ImportError as e:
                 raise ImportError(
@@ -104,8 +108,8 @@ class BERTNERService:
                                 if "id2label" in config:
                                     labels = list(config["id2label"].values())
                                     model_labels = labels
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"Could not read labels from {config_path}: {e}")
                         
                         model_info = {
                             "name": model_dir.name,
@@ -122,12 +126,17 @@ class BERTNERService:
                                     metadata = json.load(f)
                                     model_info.update(metadata)
                                     model_info["model_type"] = mtype
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logger.warning(f"Could not read metadata from {metadata_path}: {e}")
                         
                         models.append(model_info)
         
         return models
+    
+    @staticmethod
+    def entity_types_from_labels(labels: List[str]) -> set:
+        """Entity type names from BIO labels, e.g. ["B-disease", "O"] -> {"disease"}."""
+        return {label[2:] for label in labels if label[:2] in ("B-", "I-")}
     
     def load_model(self, model_name: str) -> bool:
         self._load_dependencies()
@@ -218,28 +227,51 @@ class BERTNERService:
         
         with self._torch.no_grad():
             outputs = model(**inputs)
-            predictions = self._torch.argmax(outputs.logits, dim=-1)[0].tolist()
+            probs = self._torch.softmax(outputs.logits, dim=-1)[0]
+            max_probs, predictions = probs.max(dim=-1)
+            predictions = predictions.tolist()
+            token_probs = max_probs.tolist()
         
-        entities = self._extract_entities(text, predictions, offset_mapping, tokenizer, id2label)
+        tokens = tokenizer.convert_ids_to_tokens(inputs["input_ids"][0].tolist())
+        entities = self._extract_entities(
+            text, predictions, offset_mapping, tokens, id2label, token_probs
+        )
         
         inference_time = (time.perf_counter() - start_time) * 1000
         
         return entities, inference_time
+    
+    @staticmethod
+    def _new_span(entity_type: str, start: int, end: int, text: str, prob: float) -> Dict[str, Any]:
+        return {
+            "text": text[start:end],
+            "type": entity_type,
+            "start_pos": start,
+            "end_pos": end,
+            "token_probs": [prob],
+        }
     
     def _extract_entities(
         self,
         text: str,
         predictions: List[int],
         offset_mapping: List[Tuple[int, int]],
-        tokenizer,
-        id2label: Dict[int, str] = None
+        tokens: List[str],
+        id2label: Dict[int, str],
+        token_probs: List[float],
     ) -> List[Dict[str, Any]]:
-        if id2label is None:
-            id2label = ID2LABEL
-            
+        """Group BIO token predictions into entity spans.
+
+        Span confidence is the arithmetic mean, over the span's tokens, of the
+        softmax probability of each token's predicted label.
+        """
         entities = []
         current_entity = None
         prev_end = -1
+        
+        def close(entity):
+            entity["text"] = text[entity["start_pos"]:entity["end_pos"]]
+            entities.append(entity)
         
         for idx, (pred_id, (start, end)) in enumerate(zip(predictions, offset_mapping)):
             if start == end:
@@ -247,19 +279,12 @@ class BERTNERService:
                 continue
             
             label = id2label.get(pred_id, "O")
+            prob = token_probs[idx]
             
             is_continuation = (start == prev_end) or (start <= prev_end + 1 and text[prev_end:start].strip() == '')
             
-            token_text = text[start:end]
-            is_subword = False
-            if hasattr(tokenizer, 'convert_ids_to_tokens'):
-                try:
-                    input_ids = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)["input_ids"][0]
-                    if idx < len(input_ids):
-                        token_str = tokenizer.convert_ids_to_tokens([input_ids[idx].item()])[0]
-                        is_subword = token_str.startswith('##') or token_str.startswith('Ġ')
-                except:
-                    pass
+            token_str = tokens[idx] if idx < len(tokens) else ""
+            is_subword = token_str.startswith('##') or token_str.startswith('Ġ')
             
             if not is_subword and prev_end > 0 and start > prev_end:
                 between_text = text[prev_end:start]
@@ -267,68 +292,32 @@ class BERTNERService:
             
             if label == "O":
                 if current_entity:
-                    current_entity["text"] = text[current_entity["start_pos"]:current_entity["end_pos"]]
-                    entities.append(current_entity)
+                    close(current_entity)
                     current_entity = None
             elif label.startswith("B-"):
                 entity_type = label[2:]
                 
-                if current_entity and current_entity["type"] == entity_type:
-                    if is_continuation or is_subword:
-                        current_entity["end_pos"] = end
-                        current_entity["text"] = text[current_entity["start_pos"]:end]
-                    else:
-                        current_entity["text"] = text[current_entity["start_pos"]:current_entity["end_pos"]]
-                        entities.append(current_entity)
-                        current_entity = {
-                            "text": text[start:end],
-                            "type": entity_type,
-                            "start_pos": start,
-                            "end_pos": end,
-                            "confidence": 0.9
-                        }
+                if current_entity and current_entity["type"] == entity_type and (is_continuation or is_subword):
+                    current_entity["end_pos"] = end
+                    current_entity["token_probs"].append(prob)
                 else:
                     if current_entity:
-                        current_entity["text"] = text[current_entity["start_pos"]:current_entity["end_pos"]]
-                        entities.append(current_entity)
-                    
-                    current_entity = {
-                        "text": text[start:end],
-                        "type": entity_type,
-                        "start_pos": start,
-                        "end_pos": end,
-                        "confidence": 0.9
-                    }
+                        close(current_entity)
+                    current_entity = self._new_span(entity_type, start, end, text, prob)
             elif label.startswith("I-"):
                 entity_type = label[2:]
-                if current_entity:
-                    if current_entity["type"] == entity_type:
-                        current_entity["end_pos"] = end
-                        current_entity["text"] = text[current_entity["start_pos"]:end]
-                    else:
-                        current_entity["text"] = text[current_entity["start_pos"]:current_entity["end_pos"]]
-                        entities.append(current_entity)
-                        current_entity = {
-                            "text": text[start:end],
-                            "type": entity_type,
-                            "start_pos": start,
-                            "end_pos": end,
-                            "confidence": 0.9
-                        }
+                if current_entity and current_entity["type"] == entity_type:
+                    current_entity["end_pos"] = end
+                    current_entity["token_probs"].append(prob)
                 else:
-                    current_entity = {
-                        "text": text[start:end],
-                        "type": entity_type,
-                        "start_pos": start,
-                        "end_pos": end,
-                        "confidence": 0.9
-                    }
+                    if current_entity:
+                        close(current_entity)
+                    current_entity = self._new_span(entity_type, start, end, text, prob)
             
             prev_end = end
         
         if current_entity:
-            current_entity["text"] = text[current_entity["start_pos"]:current_entity["end_pos"]]
-            entities.append(current_entity)
+            close(current_entity)
         
         merged_entities = []
         for entity in entities:
@@ -340,8 +329,13 @@ class BERTNERService:
                     if not between or between in ['-', '_', ''] or not any(c.isspace() for c in between):
                         prev["end_pos"] = entity["end_pos"]
                         prev["text"] = text[prev["start_pos"]:prev["end_pos"]]
+                        prev["token_probs"].extend(entity["token_probs"])
                         continue
             merged_entities.append(entity)
+        
+        for entity in merged_entities:
+            probs = entity.pop("token_probs")
+            entity["confidence"] = sum(probs) / len(probs)
         
         return merged_entities
     

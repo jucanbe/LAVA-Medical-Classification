@@ -423,16 +423,15 @@ async def add_pending_to_kg(
         
         kg_service = get_kg_service()
         
-        from models.entities import MedicalEntity, MedicalEntityType
+        from models.entities import MedicalEntity, MedicalEntityType, normalize_entity_type
         
-        type_mapping = {
-            "finding": MedicalEntityType.FINDING,
-            "disease": MedicalEntityType.DISEASE,
-            "quantitative_measure": MedicalEntityType.QUANTITATIVE_MEASURE,
-            "substance": MedicalEntityType.SUBSTANCE,
-            "procedure": MedicalEntityType.PROCEDURE
-        }
-        entity_type_enum = type_mapping.get(entity.entity_type, MedicalEntityType.FINDING)
+        canonical_type = normalize_entity_type(entity.entity_type)
+        if canonical_type is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Entity type '{entity.entity_type}' is not a valid type; edit the entity first"
+            )
+        entity_type_enum = MedicalEntityType(canonical_type)
         
         medical_entity = MedicalEntity(
             text=entity.text,
@@ -448,13 +447,13 @@ async def add_pending_to_kg(
         )
         
         if entity_uri:
+            kg_service.save_kg()
             review_result = await db.execute(
                 select(EntityReviewDB).where(EntityReviewDB.pending_entity_id == entity_id)
             )
-            review = review_result.scalar_one_or_none()
-            if review:
+            for review in review_result.scalars().all():
                 await db.delete(review)
-                logger.info(f"Deleted associated review for pending entity {entity_id}")
+                logger.info(f"Deleted associated review {review.id} for pending entity {entity_id}")
             
             await db.delete(entity)
             logger.info(f"Deleted pending entity {entity_id} after adding to KG")

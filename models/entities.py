@@ -1,3 +1,4 @@
+import re
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
@@ -20,6 +21,38 @@ class MedicalEntityType(str, Enum):
     SUBSTANCE = "substance"
     ADVERSE_EVENT = "adverse_event"
 
+
+# Entity types whose text is legitimately numeric (values, scores, measurements).
+NUMERIC_ENTITY_TYPES = frozenset({"parameter", "score", "examination_measure"})
+
+_ENTITY_TYPE_ALIASES = {
+    "drug": "substance",
+    "medication": "substance",
+    "medicine": "substance",
+    "sign": "finding",
+    "measure": "examination_measure",
+    "measurement": "examination_measure",
+}
+
+
+def _snake_case(value: str) -> str:
+    value = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", value.strip())
+    return re.sub(r"[\s\-]+", "_", value).lower()
+
+
+def normalize_entity_type(value: Optional[str]) -> Optional[str]:
+    """Map naming variants ("ImagingProcedure", "imaging procedure", "Drug")
+    to a MedicalEntityType value. Returns None for unknown types."""
+    if not value:
+        return None
+    key = _snake_case(value)
+    key = _ENTITY_TYPE_ALIASES.get(key, key)
+    return key if key in {e.value for e in MedicalEntityType} else None
+
+
+def normalize_relation_type(value: Optional[str]) -> str:
+    """Canonical snake_case form of a relation type name ("hasSymptom" -> "has_symptom")."""
+    return _snake_case(value) if value else ""
 
 
 class MedicalEntity(BaseModel):
@@ -398,8 +431,8 @@ class CongruenceMetrics(BaseModel):
     score: float = Field(..., ge=0.0, le=1.0, description="Overall congruence score")
     nearest_entity: Optional[str] = Field(None, description="Most similar entity in KG")
     nearest_uri: Optional[str] = Field(None, description="URI of nearest entity")
-    embedding_distance: Optional[float] = Field(None, description="Cosine distance to nearest")
-    method: str = Field("sequence_matcher", description="Method used: 'sequence_matcher', 'bert_embedding', 'hybrid'")
+    embedding_distance: Optional[float] = Field(None, description="Lexical distance to nearest KG label (1 - difflib similarity)")
+    method: str = Field("sequence_matcher", description="Similarity method used (currently always 'sequence_matcher')")
 
 
 class CoverageMetrics(BaseModel):
@@ -429,7 +462,7 @@ class CompletenessMetrics(BaseModel):
     
     score: float = Field(..., ge=0.0, le=1.0, description="Overall completeness score")
     has_type: bool = Field(False, description="Has entity type")
-    has_definition: bool = Field(False, description="Has definition/context")
+    has_definition: bool = Field(False, description="Has an independent definition (not collected by the extractors; not scored)")
     has_normalized_form: bool = Field(False, description="Has normalized form")
     has_context: bool = Field(False, description="Has source context")
     has_confidence: bool = Field(False, description="Has confidence score")
@@ -445,6 +478,10 @@ class ConsistencyMetrics(BaseModel):
     bert_agreement: Optional[bool] = Field(None, description="Does BERT classification agree?")
     llm_agreement: Optional[bool] = Field(None, description="Does LLM classification agree?")
     cross_validation_score: Optional[float] = Field(None, description="Cross-validation consistency score")
+    bert_status: Optional[str] = Field(
+        None,
+        description="Outcome of the BERT cross-check: agreed, disagreed, abstained, not_requested or unavailable:<reason>"
+    )
 
 
 class EntityReviewCreate(BaseModel):
@@ -477,6 +514,8 @@ class EntityReviewResponse(BaseModel):
     review_status: str = Field(..., description="Review status")
     recommendation: Optional[str] = Field(None, description="Recommendation: approve, reject, modify")
     review_notes: Optional[str] = Field(None, description="Additional review notes")
+    scoring_version: Optional[str] = Field(None, description="Scoring logic version (null = legacy, pre-2.0)")
+    score_history: List[dict] = Field(default_factory=list, description="Earlier score snapshots, oldest first")
     
     created_at: str = Field(..., description="Creation timestamp")
     updated_at: str = Field(..., description="Last update timestamp")

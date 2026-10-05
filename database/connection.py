@@ -1,14 +1,47 @@
+"""
+SQLite database connection management.
+"""
+import logging
 from pathlib import Path
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy import select, update
+from sqlalchemy import select, update, inspect, text
 from typing import Optional, List, AsyncGenerator
 from datetime import datetime
 
 from .models import Base, LLMConfigDB
 from config import settings
 
+logger = logging.getLogger(__name__)
+
+
+# Columns added after the first release. create_all() does not alter existing
+# tables, so they are added here with ALTER TABLE ... ADD COLUMN. The migration
+# only adds nullable columns: existing rows and data are left untouched.
+_ADDED_COLUMNS = [
+    ("entity_reviews", "completeness_has_confidence", "BOOLEAN"),
+    ("entity_reviews", "consistency_bert_status", "VARCHAR(300)"),
+    ("entity_reviews", "scoring_version", "VARCHAR(20)"),
+    ("entity_reviews", "score_history", "TEXT"),
+    ("relation_reviews", "scoring_version", "VARCHAR(20)"),
+    ("relation_reviews", "score_history", "TEXT"),
+]
+
+
+def _add_missing_columns(sync_conn) -> None:
+    inspector = inspect(sync_conn)
+    for table, column, ddl_type in _ADDED_COLUMNS:
+        existing = {c["name"] for c in inspector.get_columns(table)}
+        if column not in existing:
+            sync_conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
+            logger.info(f"Migrated database: added column {table}.{column}")
+
 
 class DatabaseManager:
+    """
+    Class to manage database connection and operations.
+    Implements the Singleton pattern for the connection.
+    """
+    
     _instance: Optional["DatabaseManager"] = None
     _initialized: bool = False
     
@@ -33,8 +66,15 @@ class DatabaseManager:
             DatabaseManager._initialized = True
     
     async def init_db(self):
+        """Initialize the database by creating all tables.
+
+        For SQLite backends the parent directory of the DB file is
+        created automatically so that first-run inside Docker (or any
+        fresh environment) works without manual setup.
+        """
         db_url = str(self.engine.url)
         if db_url.startswith("sqlite"):
+            # Extract the file path from the URL (skip 'sqlite+aiosqlite:///')
             parts = db_url.split("///", 1)
             if len(parts) == 2 and parts[1]:
                 db_path = Path(parts[1])
@@ -42,11 +82,14 @@ class DatabaseManager:
 
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(_add_missing_columns)
     
     async def close(self):
+        """Close the database connection."""
         await self.engine.dispose()
     
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
+        """Get a database session."""
         async with self.async_session() as session:
             try:
                 yield session
@@ -66,7 +109,9 @@ class DatabaseManager:
         temperature: float = 0.1,
         max_tokens: int = 2048,
         is_default: bool = False
-    ) -> LLMConfigDB:        
+    ) -> LLMConfigDB:
+        """Create a new LLM configuration."""
+        
         if is_default:
             await self._clear_default_config(session)
         
@@ -89,6 +134,7 @@ class DatabaseManager:
         session: AsyncSession,
         config_id: int
     ) -> Optional[LLMConfigDB]:
+        """Get an LLM configuration by its ID."""
         result = await session.execute(
             select(LLMConfigDB).where(LLMConfigDB.id == config_id)
         )
@@ -119,6 +165,7 @@ class DatabaseManager:
         self,
         session: AsyncSession
     ) -> List[LLMConfigDB]:
+        """Get all LLM configurations."""
         result = await session.execute(
             select(LLMConfigDB).order_by(LLMConfigDB.created_at.desc())
         )
@@ -129,7 +176,9 @@ class DatabaseManager:
         session: AsyncSession,
         config_id: int,
         **kwargs
-    ) -> Optional[LLMConfigDB]:       
+    ) -> Optional[LLMConfigDB]:
+        """Update an LLM configuration."""
+        
         if kwargs.get("is_default"):
             await self._clear_default_config(session)
         
@@ -150,6 +199,7 @@ class DatabaseManager:
         session: AsyncSession,
         config_id: int
     ) -> bool:
+        """Delete an LLM configuration."""
         config = await self.get_llm_config_by_id(session, config_id)
         if config:
             await session.delete(config)
@@ -157,6 +207,7 @@ class DatabaseManager:
         return False
     
     async def _clear_default_config(self, session: AsyncSession):
+        """Remove the default flag from all configurations."""
         await session.execute(
             update(LLMConfigDB)
             .where(LLMConfigDB.is_default == True)
@@ -170,5 +221,6 @@ async_session_maker = db_manager.async_session
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Dependency to get a database session in FastAPI."""
     async for session in db_manager.get_session():
         yield session

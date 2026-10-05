@@ -1,18 +1,26 @@
+"""
+SQLAlchemy models for the database.
+"""
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, Enum as SQLEnum
 from sqlalchemy.orm import declarative_base
 from datetime import datetime
 import enum
 
+from models.review_defaults import ENTITY_CONFIG_DEFAULTS, RELATION_CONFIG_DEFAULTS
+
 Base = declarative_base()
 
 
 class EntityStatus(str, enum.Enum):
+    """Status of a pending entity."""
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
 
 
 class LLMConfigDB(Base):
+    """Database model for LLM configuration."""
+    
     __tablename__ = "llm_configs"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
@@ -35,6 +43,8 @@ class LLMConfigDB(Base):
 
 
 class PendingEntityDB(Base):
+    """Database model for entities pending to be added to Knowledge Graph."""
+    
     __tablename__ = "pending_entities"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
@@ -58,6 +68,7 @@ class PendingEntityDB(Base):
 
 
 class ReviewStatus(str, enum.Enum):
+    """Status of an entity review."""
     PENDING = "pending"
     PASSED = "passed"
     FAILED = "failed"
@@ -65,6 +76,11 @@ class ReviewStatus(str, enum.Enum):
 
 
 class EntityReviewDB(Base):
+    """
+    Database model for entity quality review based on adapted 7 Cs Scorecard.
+    Stores evaluation metrics for entities before KG introduction.
+    """
+    
     __tablename__ = "entity_reviews"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
@@ -92,14 +108,20 @@ class EntityReviewDB(Base):
     completeness_has_definition = Column(Boolean, nullable=True)
     completeness_has_normalized_form = Column(Boolean, nullable=True)
     completeness_has_context = Column(Boolean, nullable=True)
+    completeness_has_confidence = Column(Boolean, nullable=True)
     
     consistency_score = Column(Float, nullable=True)
     consistency_type_confidence = Column(Float, nullable=True)
     consistency_alternate_types = Column(Text, nullable=True)
     consistency_bert_agreement = Column(Boolean, nullable=True)
+    consistency_bert_status = Column(String(300), nullable=True)
     
     overall_score = Column(Float, nullable=True)
     review_status = Column(String(20), default=ReviewStatus.PENDING.value)
+    # NULL = scored by the logic that predates SCORING_VERSION tracking.
+    scoring_version = Column(String(20), nullable=True)
+    # JSON list of earlier score snapshots, appended on each re-evaluation.
+    score_history = Column(Text, nullable=True)
     
     reviewed_by = Column(String(100), nullable=True)
     review_notes = Column(Text, nullable=True)
@@ -112,35 +134,40 @@ class EntityReviewDB(Base):
 
 
 class EntityConfigDB(Base):
+    """
+    Database model for Entity Review configuration.
+    Stores weights and thresholds for the 5 Cs scorecard metrics.
+    """
+    
     __tablename__ = "entity_config"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     config_name = Column(String(100), unique=True, nullable=False, default="default")
     
-    weight_congruence = Column(Float, nullable=False, default=0.25)
-    weight_coverage = Column(Float, nullable=False, default=0.15)
-    weight_constraint = Column(Float, nullable=False, default=0.25)
-    weight_completeness = Column(Float, nullable=False, default=0.15)
-    weight_consistency = Column(Float, nullable=False, default=0.20)
+    weight_congruence = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["weight_congruence"])
+    weight_coverage = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["weight_coverage"])
+    weight_constraint = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["weight_constraint"])
+    weight_completeness = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["weight_completeness"])
+    weight_consistency = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["weight_consistency"])
     
-    threshold_pass = Column(Float, nullable=False, default=0.75)
-    threshold_review = Column(Float, nullable=False, default=0.50)
+    threshold_pass = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["threshold_pass"])
+    threshold_review = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["threshold_review"])
     
-    congruence_min_similarity = Column(Float, nullable=False, default=0.7)
-    congruence_exact_match_bonus = Column(Float, nullable=False, default=0.2)
+    congruence_min_similarity = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["congruence_min_similarity"])
+    congruence_exact_match_bonus = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["congruence_exact_match_bonus"])
     
-    coverage_novelty_threshold = Column(Integer, nullable=False, default=3)
-    coverage_novelty_bonus = Column(Float, nullable=False, default=0.3)
+    coverage_novelty_threshold = Column(Integer, nullable=False, default=ENTITY_CONFIG_DEFAULTS["coverage_novelty_threshold"])
+    coverage_novelty_bonus = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["coverage_novelty_bonus"])
     
-    constraint_min_length = Column(Integer, nullable=False, default=2)
-    constraint_max_length = Column(Integer, nullable=False, default=200)
-    constraint_violation_penalty = Column(Float, nullable=False, default=0.25)
+    constraint_min_length = Column(Integer, nullable=False, default=ENTITY_CONFIG_DEFAULTS["constraint_min_length"])
+    constraint_max_length = Column(Integer, nullable=False, default=ENTITY_CONFIG_DEFAULTS["constraint_max_length"])
+    constraint_violation_penalty = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["constraint_violation_penalty"])
     
-    completeness_required_fields = Column(Text, nullable=False, default="type,text")
-    completeness_optional_weight = Column(Float, nullable=False, default=0.15)
+    completeness_required_fields = Column(Text, nullable=False, default=ENTITY_CONFIG_DEFAULTS["completeness_required_fields"])
+    completeness_optional_weight = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["completeness_optional_weight"])
     
-    consistency_agreement_bonus = Column(Float, nullable=False, default=0.3)
-    consistency_base_score = Column(Float, nullable=False, default=0.5)
+    consistency_agreement_bonus = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["consistency_agreement_bonus"])
+    consistency_base_score = Column(Float, nullable=False, default=ENTITY_CONFIG_DEFAULTS["consistency_base_score"])
     
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -152,6 +179,8 @@ class EntityConfigDB(Base):
 
 
 class PendingRelationDB(Base):
+    """Database model for relations pending to be added to Knowledge Graph."""
+    
     __tablename__ = "pending_relations"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
@@ -173,35 +202,41 @@ class PendingRelationDB(Base):
 
 
 class RelationConfigDB(Base):
+    """
+    Database model for Relation Review configuration.
+    Stores weights and thresholds for the 5 Cs scorecard metrics adapted for relations.
+    Adapted from '7 Cs for Synthetic Medical Data Evaluation' (Zamzmi et al., 2025).
+    """
+    
     __tablename__ = "relation_config"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     config_name = Column(String(100), unique=True, nullable=False, default="default")
     
-    weight_congruence = Column(Float, nullable=False, default=0.25)
-    weight_coverage = Column(Float, nullable=False, default=0.15)
-    weight_constraint = Column(Float, nullable=False, default=0.25)
-    weight_completeness = Column(Float, nullable=False, default=0.15)
-    weight_consistency = Column(Float, nullable=False, default=0.20)
+    weight_congruence = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["weight_congruence"])
+    weight_coverage = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["weight_coverage"])
+    weight_constraint = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["weight_constraint"])
+    weight_completeness = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["weight_completeness"])
+    weight_consistency = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["weight_consistency"])
     
-    threshold_pass = Column(Float, nullable=False, default=0.75)
-    threshold_review = Column(Float, nullable=False, default=0.50)
+    threshold_pass = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["threshold_pass"])
+    threshold_review = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["threshold_review"])
     
-    congruence_type_penalty = Column(Float, nullable=False, default=0.3)
-    congruence_kg_bonus = Column(Float, nullable=False, default=0.2)
+    congruence_type_penalty = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["congruence_type_penalty"])
+    congruence_kg_bonus = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["congruence_kg_bonus"])
     
-    coverage_novelty_threshold = Column(Integer, nullable=False, default=3)
-    coverage_novelty_bonus = Column(Float, nullable=False, default=0.3)
+    coverage_novelty_threshold = Column(Integer, nullable=False, default=RELATION_CONFIG_DEFAULTS["coverage_novelty_threshold"])
+    coverage_novelty_bonus = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["coverage_novelty_bonus"])
     
-    constraint_violation_penalty = Column(Float, nullable=False, default=0.25)
-    constraint_min_confidence = Column(Float, nullable=False, default=0.3)
-    constraint_require_context = Column(Boolean, nullable=False, default=False)
+    constraint_violation_penalty = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["constraint_violation_penalty"])
+    constraint_min_confidence = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["constraint_min_confidence"])
+    constraint_require_context = Column(Boolean, nullable=False, default=RELATION_CONFIG_DEFAULTS["constraint_require_context"])
     
-    completeness_required_fields = Column(Text, nullable=False, default="source_entity,target_entity,relation_type,source_type,target_type")
-    completeness_optional_weight = Column(Float, nullable=False, default=0.15)
+    completeness_required_fields = Column(Text, nullable=False, default=RELATION_CONFIG_DEFAULTS["completeness_required_fields"])
+    completeness_optional_weight = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["completeness_optional_weight"])
     
-    consistency_agreement_bonus = Column(Float, nullable=False, default=0.3)
-    consistency_base_score = Column(Float, nullable=False, default=0.5)
+    consistency_agreement_bonus = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["consistency_agreement_bonus"])
+    consistency_base_score = Column(Float, nullable=False, default=RELATION_CONFIG_DEFAULTS["consistency_base_score"])
     
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -212,6 +247,8 @@ class RelationConfigDB(Base):
 
 
 class TripleStoreConfigDB(Base):
+    """Database model for Triple Store backend configuration."""
+
     __tablename__ = "triple_store_configs"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
@@ -237,6 +274,12 @@ class TripleStoreConfigDB(Base):
 
 
 class RelationReviewDB(Base):
+    """
+    Database model for relation quality review based on adapted 7 Cs Scorecard.
+    Stores evaluation metrics for relations before KG introduction.
+    Adapted from '7 Cs for Synthetic Medical Data Evaluation' (Zamzmi et al., 2025).
+    """
+    
     __tablename__ = "relation_reviews"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
@@ -261,6 +304,10 @@ class RelationReviewDB(Base):
     review_status = Column(String(20), default=ReviewStatus.PENDING.value)
     recommendation = Column(String(50), nullable=True)
     review_notes = Column(Text, nullable=True)
+    # NULL = scored by the logic that predates SCORING_VERSION tracking.
+    scoring_version = Column(String(20), nullable=True)
+    # JSON list of earlier score snapshots, appended on each re-evaluation.
+    score_history = Column(Text, nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -9,18 +9,10 @@ python-dotenv==1.0.0
 rdflib>=7.1.0
 jinja2>=3.1.2
 python-multipart>=0.0.6
-
-# Document processing
 pypdf>=4.0.0
 python-docx>=1.1.0
-
-# LangExtract - unified entity/relation extraction (Google)
-langextract>=1.1.0
-
-# BERT NER dependencies (optional - install if using BERT classification)
+langextract==1.1.0
 transformers>=4.36.0
 torch>=2.1.0
 datasets>=2.16.0
-
-# Async HTTP (used by aiosqlite, external KG queries, etc.)
 aiohttp>=3.9.0

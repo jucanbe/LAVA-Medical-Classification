@@ -103,11 +103,11 @@
     </div>
     <div class="card-body">
         <div class="weight-bar" id="weightBar">
-            <div class="segment congruence" style="width: 25%">Cong. 25%</div>
-            <div class="segment coverage" style="width: 15%">Cov. 15%</div>
-            <div class="segment constraint" style="width: 25%">Const. 25%</div>
-            <div class="segment completeness" style="width: 15%">Comp. 15%</div>
-            <div class="segment consistency" style="width: 20%">Cons. 20%</div>
+            <div class="segment congruence" style="width: 20%">Cong. 20%</div>
+            <div class="segment coverage" style="width: 0%">Cov. 0%</div>
+            <div class="segment constraint" style="width: 5%">Const. 5%</div>
+            <div class="segment completeness" style="width: 30%">Comp. 30%</div>
+            <div class="segment consistency" style="width: 45%">Cons. 45%</div>
         </div>
     </div>
 </div>
@@ -126,7 +126,7 @@
                         <label class="form-label">Congruence</label>
                         <div class="input-group">
                             <input type="number" class="form-control" id="weight_congruence" 
-                                   min="0" max="1" step="0.05" value="0.25" onchange="updateWeightBar()">
+                                   min="0" max="1" step="0.05" value="0.20" onchange="updateWeightBar()">
                             <span class="input-group-text">×100%</span>
                         </div>
                         <div class="form-text">Semantic alignment with KG</div>
@@ -135,7 +135,7 @@
                         <label class="form-label">Coverage</label>
                         <div class="input-group">
                             <input type="number" class="form-control" id="weight_coverage" 
-                                   min="0" max="1" step="0.05" value="0.15" onchange="updateWeightBar()">
+                                   min="0" max="1" step="0.05" value="0.00" onchange="updateWeightBar()">
                             <span class="input-group-text">×100%</span>
                         </div>
                         <div class="form-text">Gap-filling assessment</div>
@@ -144,7 +144,7 @@
                         <label class="form-label">Constraint</label>
                         <div class="input-group">
                             <input type="number" class="form-control" id="weight_constraint" 
-                                   min="0" max="1" step="0.05" value="0.25" onchange="updateWeightBar()">
+                                   min="0" max="1" step="0.05" value="0.05" onchange="updateWeightBar()">
                             <span class="input-group-text">×100%</span>
                         </div>
                         <div class="form-text">Clinical validity</div>
@@ -153,7 +153,7 @@
                         <label class="form-label">Completeness</label>
                         <div class="input-group">
                             <input type="number" class="form-control" id="weight_completeness" 
-                                   min="0" max="1" step="0.05" value="0.15" onchange="updateWeightBar()">
+                                   min="0" max="1" step="0.05" value="0.30" onchange="updateWeightBar()">
                             <span class="input-group-text">×100%</span>
                         </div>
                         <div class="form-text">Required attributes</div>
@@ -162,7 +162,7 @@
                         <label class="form-label">Consistency</label>
                         <div class="input-group">
                             <input type="number" class="form-control" id="weight_consistency" 
-                                   min="0" max="1" step="0.05" value="0.20" onchange="updateWeightBar()">
+                                   min="0" max="1" step="0.05" value="0.45" onchange="updateWeightBar()">
                             <span class="input-group-text">×100%</span>
                         </div>
                         <div class="form-text">Cross-validation agreement</div>
@@ -247,7 +247,7 @@
                     <div class="col-6">
                         <label class="form-label">Novelty Bonus</label>
                         <input type="number" class="form-control" id="coverage_novelty_bonus" 
-                               min="0" max="1" step="0.05" value="0.3">
+                               min="0" max="0.5" step="0.05" value="0.3">
                         <div class="form-text">Bonus score for novel entities</div>
                     </div>
                 </div>
@@ -294,7 +294,7 @@
                         <label class="form-label">Required Fields</label>
                         <input type="text" class="form-control" id="completeness_required_fields" 
                                value="type,text">
-                        <div class="form-text">Comma-separated: type, text, context, definition</div>
+                        <div class="form-text">Comma-separated: type, text, context, normalized_form, confidence</div>
                     </div>
                     <div class="col-4">
                         <label class="form-label">Optional Weight</label>
@@ -317,7 +317,7 @@
                         <label class="form-label">Agreement Bonus</label>
                         <input type="number" class="form-control" id="consistency_agreement_bonus" 
                                min="0" max="1" step="0.05" value="0.3">
-                        <div class="form-text">Bonus when LLM & BERT agree</div>
+                        <div class="form-text">Bonus × BERT probability when LLM &amp; BERT agree</div>
                     </div>
                     <div class="col-6">
                         <label class="form-label">Base Score</label>
@@ -405,10 +405,10 @@
                     </tr>
                     <tr>
                         <td><code>Required Fields</code></td>
-                        <td>List of mandatory fields the entity must have to be considered complete. Possible values: <code>type</code>, <code>text</code>, <code>context</code>, <code>definition</code>, <code>normalized_form</code>, <code>confidence</code>.</td>
+                        <td>List of mandatory fields the entity must have to be considered complete. Possible values: <code>type</code>, <code>text</code>, <code>context</code>, <code>normalized_form</code>, <code>confidence</code>.</td>
                         <td>
                             $score_{required} = \frac{fields\_present}{total\_required}$<br>
-                            <small>Weight: 70% of total Completeness score</small>
+                            <small>Weight: (1 - optional_weight) of total Completeness score</small>
                         </td>
                         <td>
                             Required="type,text,context"<br>
@@ -420,12 +420,12 @@
                         <td><code>Optional Weight</code></td>
                         <td>Relative weight of optional fields (not listed in Required) in the Completeness score calculation.</td>
                         <td>
-                            $score_{total} = (score_{req} \times 0.7) + (score_{opt} \times opt\_weight)$<br>
-                            <small>Where $opt\_weight$ is the configured value (default 0.30)</small>
+                            $score_{total} = score_{req} \times (1 - opt\_weight) + score_{opt} \times opt\_weight$<br>
+                            <small>Where $opt\_weight$ is the configured value (default 0.15)</small>
                         </td>
                         <td>
-                            Score_req=0.67, Score_opt=1.0, Opt_weight=0.30<br>
-                            Total: (0.67×0.7) + (1.0×0.3) = <strong>0.77</strong>
+                            Score_req=0.67, Score_opt=1.0, Opt_weight=0.15<br>
+                            Total: (0.67×0.85) + (1.0×0.15) = <strong>0.72</strong>
                         </td>
                     </tr>
                     
@@ -437,12 +437,13 @@
                         <td><code>Agreement Bonus</code></td>
                         <td>Bonus when the LLM classifier and BERT classifier agree on the entity type. Indicates higher classification confidence.</td>
                         <td>
-                            $score = confidence + agreement\_bonus$ if LLM = BERT<br>
-                            $score = confidence - (bonus \times 0.75)$ if LLM ≠ BERT
+                            $score = confidence + bonus \times p_{BERT}$ if LLM = BERT<br>
+                            $score = \min(0.8, confidence) - 0.75 \times bonus \times p_{BERT}$ if LLM ≠ BERT<br>
+                            $score = \min(0.8, confidence)$ if BERT is unavailable or finds nothing (no penalty)
                         </td>
                         <td>
-                            LLM: "disease", BERT: "disease" → Agreement ✓<br>
-                            Confidence 0.7 + Bonus 0.3 = <strong>1.0</strong>
+                            LLM: "disease", BERT: "disease" (p=0.9) → Agreement ✓<br>
+                            Confidence 0.7 + 0.3×0.9 = <strong>0.97</strong>
                         </td>
                     </tr>
                     <tr>
@@ -458,9 +459,9 @@
         <!-- Overall Formula -->
         <div class="alert alert-secondary mt-3">
             <h6><i class="bi bi-calculator me-2"></i>Overall Score Formula</h6>
-            <p class="mb-2">The final entity score is calculated as the weighted sum of the 5 metrics:</p>
+            <p class="mb-2">The final entity score is the weighted mean of the 5 metrics. A metric that cannot be assessed (e.g. Congruence and Coverage when the Knowledge Graph is unavailable) is left out and the remaining weights are renormalized:</p>
             <div class="text-center mb-3" style="font-size: 1.1rem;">
-                $Score_{total} = \sum_{i=1}^{5} (score_i \times weight_i)$
+                $Score_{total} = \frac{\sum_{i \in assessed} score_i \times weight_i}{\sum_{i \in assessed} weight_i}$
             </div>
             <p class="mb-1">Expanded:</p>
             <code style="font-size: 0.9rem;">
@@ -470,8 +471,8 @@
             <p class="mb-1"><strong>Example with default weights:</strong></p>
             <small>
                 An entity with scores: Congruence=0.85, Coverage=0.80, Constraint=0.90, Completeness=0.75, Consistency=0.95<br>
-                Score = (0.85×0.25) + (0.80×0.15) + (0.90×0.25) + (0.75×0.15) + (0.95×0.20)<br>
-                Score = 0.2125 + 0.12 + 0.225 + 0.1125 + 0.19 = <strong>0.86 (86%)</strong> → ✓ Passed
+                Score = (0.85×0.20) + (0.80×0.00) + (0.90×0.05) + (0.75×0.30) + (0.95×0.45)<br>
+                Score = 0.17 + 0 + 0.045 + 0.225 + 0.4275 = <strong>0.87 (87%)</strong> → ✓ Passed
             </small>
         </div>
     </div>

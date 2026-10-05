@@ -111,7 +111,9 @@ Return ONLY valid JSON with this exact format:
 DEFAULT_SYSTEM_PROMPT = DEFAULT_ENTITY_PROMPT
 
 
-class LLMConfigBase(BaseModel):   
+class LLMConfigBase(BaseModel):
+    """Base for LLM configuration."""
+    
     model_config = {"protected_namespaces": ()}
     
     name: str = Field(
@@ -167,10 +169,13 @@ class LLMConfigBase(BaseModel):
 
 
 class LLMConfigCreate(LLMConfigBase):
+    """Model for creating a new LLM configuration."""
     pass
 
 
-class LLMConfigUpdate(BaseModel):    
+class LLMConfigUpdate(BaseModel):
+    """Model for updating an LLM configuration."""
+    
     model_config = {"protected_namespaces": ()}
     
     name: Optional[str] = Field(None, min_length=1, max_length=100)
@@ -186,7 +191,9 @@ class LLMConfigUpdate(BaseModel):
     is_default: Optional[bool] = None
 
 
-class LLMConfigResponse(LLMConfigBase):    
+class LLMConfigResponse(LLMConfigBase):
+    """Response model for LLM configuration."""
+    
     model_config = {"protected_namespaces": (), "from_attributes": True}
     
     id: int = Field(..., description="Unique ID of the configuration")

@@ -553,7 +553,13 @@
             
             // Check for HTTP errors
             if (!response.ok) {
-                const errorMessage = result.detail || result.error || result.message || 'Request failed';
+                let errorMessage = result.detail || result.error || result.message || 'Request failed';
+                if (Array.isArray(errorMessage)) {
+                    // FastAPI validation errors: [{loc, msg, ...}]
+                    errorMessage = errorMessage.map(e => e.msg || JSON.stringify(e)).join('; ');
+                } else if (typeof errorMessage === 'object') {
+                    errorMessage = [errorMessage.error, errorMessage.message].filter(Boolean).join(': ') || JSON.stringify(errorMessage);
+                }
                 throw new Error(errorMessage);
             }
             

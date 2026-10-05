@@ -7,33 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from database.connection import get_db
+from models.review_defaults import ENTITY_CONFIG_DEFAULTS, validate_review_config
+from services.entity_reviewer import invalidate_config_cache
 from database.models import EntityConfigDB
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/entity-config", tags=["Entity Configuration"])
 
-DEFAULT_CONFIG = {
-    "config_name": "default",
-    "weight_congruence": 0.25,
-    "weight_coverage": 0.15,
-    "weight_constraint": 0.25,
-    "weight_completeness": 0.15,
-    "weight_consistency": 0.20,
-    "threshold_pass": 0.75,
-    "threshold_review": 0.50,
-    "congruence_min_similarity": 0.7,
-    "congruence_exact_match_bonus": 0.2,
-    "coverage_novelty_threshold": 3,
-    "coverage_novelty_bonus": 0.3,
-    "constraint_min_length": 2,
-    "constraint_max_length": 200,
-    "constraint_violation_penalty": 0.25,
-    "completeness_required_fields": "type,text",
-    "completeness_optional_weight": 0.15,
-    "consistency_agreement_bonus": 0.3,
-    "consistency_base_score": 0.5,
-}
+DEFAULT_CONFIG = ENTITY_CONFIG_DEFAULTS
 
 
 async def get_or_create_config(db: AsyncSession) -> EntityConfigDB:
@@ -193,9 +175,15 @@ async def update_config(
         if consistency_base_score is not None:
             config.consistency_base_score = consistency_base_score
         
+        try:
+            validate_review_config({k: getattr(config, k) for k in DEFAULT_CONFIG if k != "config_name"})
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        
         config.updated_at = datetime.utcnow()
         await db.commit()
         await db.refresh(config)
+        invalidate_config_cache()
         
         return {
             "success": True,
@@ -226,6 +214,7 @@ async def reset_to_defaults(db: AsyncSession = Depends(get_db)):
         config.updated_at = datetime.utcnow()
         await db.commit()
         await db.refresh(config)
+        invalidate_config_cache()
         
         return {
             "success": True,

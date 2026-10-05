@@ -162,12 +162,12 @@ async def delete_config(config_id: int, db: AsyncSession = Depends(get_db)):
 
 
 def _reload_kg():
-    """Silently reload the KG service singleton."""
+    """Reload the KG service singleton; failures are logged, not raised."""
     try:
         from services.knowledge_graph import reload_kg_service
         reload_kg_service()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Could not reload the Knowledge Graph service: {e}", exc_info=True)
 
 
 
@@ -469,8 +469,8 @@ async def get_store_entity_stats(config_id: int, db: AsyncSession = Depends(get_
         bindings = raw.get("results", {}).get("bindings", [])
         if bindings:
             distinct_entities = int(bindings[0].get("c", {}).get("value", "0"))
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Triple store stats: entity count query failed: {e}")
 
     total_labels = 0
     try:
@@ -482,8 +482,8 @@ async def get_store_entity_stats(config_id: int, db: AsyncSession = Depends(get_
         bindings = raw.get("results", {}).get("bindings", [])
         if bindings:
             total_labels = int(bindings[0].get("c", {}).get("value", "0"))
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Triple store stats: label count query failed: {e}")
 
     sample_entities = []
     try:
@@ -503,8 +503,8 @@ async def get_store_entity_stats(config_id: int, db: AsyncSession = Depends(get_
             if label and label not in seen and len(sample_entities) < 20:
                 sample_entities.append({"label": label, "type": type_name})
                 seen.add(label)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Triple store stats: sample entities query failed: {e}")
 
     total_predicates = 0
     try:
@@ -513,8 +513,8 @@ async def get_store_entity_stats(config_id: int, db: AsyncSession = Depends(get_
         bindings = raw.get("results", {}).get("bindings", [])
         if bindings:
             total_predicates = int(bindings[0].get("c", {}).get("value", "0"))
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Triple store stats: predicate count query failed: {e}")
 
     return {
         "success": True,

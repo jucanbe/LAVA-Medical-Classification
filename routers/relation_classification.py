@@ -122,6 +122,9 @@ async def classify_relations(
             temperature=config.temperature,
             max_tokens=config.max_tokens
         )
+        # Detects json_schema/json_object support, as the entity endpoints do.
+        # Without it reasoning models can spend max_tokens thinking and return nothing.
+        await llm_client.verify_connection()
         
         custom_relation_prompt = getattr(config, 'relation_prompt', None)
         classifier = MedicalRelationClassifier(llm_client=llm_client, custom_system_prompt=custom_relation_prompt)
@@ -193,6 +196,9 @@ async def classify_relations_bert(
             temperature=config.temperature,
             max_tokens=config.max_tokens
         )
+        # Detects json_schema/json_object support, as the entity endpoints do.
+        # Without it reasoning models can spend max_tokens thinking and return nothing.
+        await llm_client.verify_connection()
         
         custom_relation_prompt = getattr(config, 'relation_prompt', None)
         classifier = MedicalRelationClassifier(llm_client=llm_client, custom_system_prompt=custom_relation_prompt)

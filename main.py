@@ -66,8 +66,8 @@ async def lifespan(app: FastAPI):
                 try:
                     from services.knowledge_graph import reload_kg_service
                     reload_kg_service()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"Failed to reload KG service on startup: {e}", exc_info=True)
             break
     except Exception as e:
         logger.warning(f"Triple store auto-activation failed on startup: {e}")

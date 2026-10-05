@@ -35,7 +35,12 @@ class ExtractedEntities(BaseModel):
     )
 
 
-class MedicalEntityClassifier:    
+class MedicalEntityClassifier:
+    """
+    Service to classify medical entities in text using an LLM.
+    Uses structured prompts to force valid JSON outputs.
+    """
+    
     SYSTEM_PROMPT = """You are a medical named entity recognition (NER) expert. 
 Your task is to identify and classify medical entities in the given text.
 
